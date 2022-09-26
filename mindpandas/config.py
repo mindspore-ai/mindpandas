@@ -49,9 +49,9 @@ def set_concurrency_mode(mode, **kwargs):
     i_config.set_concurrency_mode(mode)
 
     if mode == 'multiprocess':
-        i_config.set_multiprocess_backend('yr')
+        i_config.set_multiprocess_backend('multiprocess')
         address = kwargs.get('address', None)
-        eager_backend.set_yr_backend(server_address=address, ds_address=address)
+        eager_backend.set_multiprocess_backend(server_address=address, ds_address=address)
     elif mode == 'multithread':
         eager_backend.set_python_backend()
 
@@ -69,7 +69,7 @@ def get_concurrency_mode():
         >>> mode = pd.get_concurrency_mode()
     """
     mode = i_config.get_concurrency_mode()
-    if mode == 'yr':
+    if mode == 'multiprocess':
         mode = 'multiprocess'
     return mode
 
@@ -179,16 +179,19 @@ def get_min_block_size():
 
 def set_adaptive_concurrency(adaptive):
     """
-    Set the flag to use adaptive concurrency.
+    Users can set adaptive concurrency to allow read_csv to automatically select the concurrency mode based on the
+    file size. Available options are "True" or "False". When set to True, file sizes read from read_csv greater
+    than 18 MB and DataFrames initialized from pandas DataFrames using more than 1 GB CPU memory will use the
+    multiprocess mode, otherwise they will use the multithread mode.
 
     Args:
-        adaptive(bool): True or False.
+        adaptive(bool): True to turn on adaptive concurrency, False to turn off adaptive concurrency.
 
     Raises:
-        ValueError: if adaptive is not 1 or 0.
+        ValueError: if adaptive is not True or False.
 
     Examples:
-        >>> # Set the adaptive concurrency flag to True.
+        >>> # Set adaptive concurrency to True.
         >>> import mindpandas as pd
         >>> pd.set_adaptive_concurrency(True)
     """
@@ -235,5 +238,5 @@ def get_adaptive_partition_shape(mode):
     if mode not in support_mode:
         raise ValueError(f"Mode {mode} is not supported.")
     if mode == 'multiprocess':
-        mode = 'yr'
+        mode = 'multiprocess'
     return i_config.get_adaptive_partition_shape(mode)
