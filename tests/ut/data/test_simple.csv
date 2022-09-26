@@ -1,0 +1,5 @@
+id,name,sex,age,depart_id,depart_name
+001,tom,woman,16,D1,three
+002,mary,man,14,D3,two
+003,tony,woman,20,D1,one
+004,susy,man,202,D5,four

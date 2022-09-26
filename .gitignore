@@ -1,0 +1,13 @@
+# MindPandas
+build/
+mindpandas/__pycache__/
+mindpandas/backend/__pycache__/
+mindpandas/backend/eager/__pycache__/
+mindpandas/compiler/__pycache__/
+output/
+tests/ut/__pycache__/
+tests/ut/data/__pycache__/
+
+#IDE
+.vscode/
+.idea/

@@ -1,0 +1,200 @@
+OPEN SOURCE SOFTWARE NOTICE
+
+Please note we provide an open source software notice along with this product and/or this product firmware (in the following just “this product”). The open source software licenses are granted by the respective right holders. And the open source licenses prevail all other license information with regard to the respective open source software contained in the product, including but not limited to End User Software Licensing Agreement. This notice is provided on behalf of Huawei Technologies Co. Ltd. and any of its local subsidiaries which may have provided this product to you in your local country.
+
+Warranty Disclaimer
+THE OPEN SOURCE SOFTWARE IN THIS PRODUCT IS DISTRIBUTED IN THE HOPE THAT IT WILL BE USEFUL, BUT WITHOUT ANY WARRANTY, WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE. SEE THE APPLICABLE LICENSES FOR MORE DETAILS.
+
+Copyright Notice and License Texts
+
+Software: pandas 1.3.5
+Copyright notice:
+Copyright (c) 2005-2011, NumPy Developers.
+Copyright (c) 2007  Nick Galbreath -- nickg [at] modp [dot] com. All rights reserved.
+(src/search/.c) functions are Copyright © 2011 Szabolcs Nagy and licensed under following terms: "Permission to use, copy, modify, and/or distribute this code for any purpose with or without fee is hereby granted. There is no warranty."
+Copyright (c) 2015-     - Paul Ganssle <paul@ganssle.io>
+Copyright (c) 2003-2012 SciPy Developers.
+Copyright (c) 2012, Lambda Foundry, Inc.
+Copyright © 2003-2009 Steven G. Kargl or
+Copyright © 1994 David Burren. It is licensed under a BSD license.
+Copyright © 2003-2011 David Schultz or
+Copyright (C) 2002 Michael Ringgaard. All rights reserved.
+Copyright (c) 2010, Albert Sweigart All rights reserved.
+Copyright (c) 1991 - 1995, Stichting Mathematisch Centrum Amsterdam, The Netherlands.  All rights reserved.
+Copyright (c) 2006 Alexander Chemeris
+Copyright (c) 2003-2011 - Gustavo Niemeyer <gustavo@niemeyer.net>
+addcopyright = Appender("Copyright (c) 2009", join='\n')
+Copyright (c) 2015 Jared Hobbs
+Copyright (c) 2005-2011, NumPy Developers All rights reserved.
+Copyright (c) 2001, 2002 Enthought, Inc.
+Copyright (c) 2015-     - dateutil contributors (see AUTHORS file)
+Copyright 2017- Paul Ganssle <paul@ganssle.io>
+Copyright © 2005-2014 Rich Felker, et al.
+copyright = "2008-2014, the pandas development team"
+Copyright (c) 2010-2012 Archipel Asset Management AB.
+Copyright (c) 2008, 2009, 2011 by Attractive Chaos <attractor@live.co.uk>
+Copyright (c) 2011-2012, Lambda Foundry, Inc.
+Copyright (c) 1988-1993 The Regents of the University of California.
+Copyright (c) 2012, PyData Development Team All rights reserved.
+Copyright (C) 2012 Google Inc.
+Copyright (c) 2006-2008 Alexander Chemeris
+copyright 2013, y-p @ github
+Copyright (c) 2012, Lambda Foundry, Inc., except where noted
+Copyright (c) 1994 Sun Microsystems, Inc.
+Copyright (c) 2011-2013, ESN Social Software AB and Jonas Tarnstrom All rights reserved.
+Copyright (c) 2011 by Enthought, Inc.
+Copyright (c) 2011-2012, PyData Development Team
+Copyright © 1993,2004 Sun Microsystems or
+Copyright (c) 2014-2016 - Yaron de Leeuw <me@jarondl.net>
+Copyright (c) 2008-2012, AQR Capital Management, LLC, Lambda Foundry, Inc. and PyData Development Team All rights reserved.
+License Agreement and CNRI's notice of copyright, i.e., "Copyright (c) 1995-2001 Corporation for National Research Initiatives; All Rights Reserved" are retained in Python 1.6.1 alone or in any derivative version prepared by Licensee.  Alternately, in lieu of CNRI's License Agreement, Licensee may substitute the following text (omitting the quotes): "Python 1.6.1 is made available subject to the terms and conditions in CNRI's License Agreement.  This Agreement together with Python 1.6.1 may be located on the Internet using the following unique, persistent identifier (known as a handle): 1895.22/1013.  This Agreement may also be obtained from a proxy server on the Internet
+i.e., "Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010 Python Software Foundation; All Rights Reserved" are retained in Python alone or in any derivative version prepared by Licensee.
+Copyright (c) 2008-2011 AQR Capital Management, LLC
+Copyright 2017- dateutil contributors (see AUTHORS file)
+Copyright (c) 2017 - dateutil contributors class timelex: def init(self, instream): if getattr(instream, 'decode', None) is not None: instream = instream.decode()
+Copyright (c) 2012-2014 - Tomi Pieviläinen <tomi.pievilainen@iki.fi>
+Copyright (c) 2016, PyData Development Team All rights reserved.
+Copyright © 2003-2009 Bruce D. Evans or
+Copyright © 2008 Stephen L. Moshier and labelled as such in comments in the individual source files. All have been licensed under extremely permissive terms.
+
+BSD 3-Clause License
+
+Copyright (c) 2008-2012, AQR Capital Management, LLC, Lambda Foundry, Inc. and PyData Development Team
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+* Redistributions of source code must retain the above copyright notice, this
+  list of conditions and the following disclaimer.
+
+* Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
+
+* Neither the name of the copyright holder nor the names of its
+  contributors may be used to endorse or promote products derived from
+  this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+Software: numpy 1.17.0
+Copyright notice:
+Copyright (c) 1995, 1996, 1997 Jim Hugunin, hugunin@mit.edu
+Copyright 2014 Melissa O'Neill <oneill@pcg-random.org>
+Copyright (c) 2006, University of Georgia and Pierre G.F. Gerard-Marchant All rights reserved.
+Copyright 1999-2004 Pearu Peterson all rights reserved, Pearu Peterson <pearu@ioc.ee>
+Copyright (c) 2009-2019: Jeff Bezanson, Stefan Karpinski, Viral B. Shah, and other contributors:
+Copyright (c) 2003-2005, Jean-Sebastien Roy (js@jeannot.org)
+copyright = '2008-2019, The SciPy community'
+Copyright 2002 Pearu Peterson all rights reserved, Pearu Peterson <pearu@cens.ioc.ee>
+Copyright (c) 2019 NumPy Developers
+Copyright (c) 2005-2017, NumPy Developers.
+Copyright (c) 2018 Melissa E. O'Neill
+Copyright (c) 2008 Ian Bicking and Contributors
+Copyright (c) 1992-2013 The University of Tennessee and The University of Tennessee Research Foundation.  All rights reserved.
+Copyright 1999, 2000, 2001 Regents of the University of California.
+Copyright (c) 2005, NumPy Developers
+Copyright (c) 2019 Kevin Sheppard. All rights reserved.
+Copyright 2010-2012, D. E. Shaw Research.
+Copyright (c) 2011 by Mark Wiebe (mwwiebe@gmail.com)
+Copyright 2006, Dean Edwards
+Copyright (c) 2014 Ryan Juckett
+Copyright 2001-2005 Pearu Peterson all rights reserved, Pearu Peterson <pearu@cens.ioc.ee>
+copyright = u'2017-2018, NumPy Developers'
+Copyright (C) 2004-2018 Max-Planck-Society \author Martin Reinecke
+Copyright (c) 2010-2011 by Mark Wiebe (mwwiebe@gmail.com)
+Copyright (c) 2012 Stephen Montgomery-Smith <stephen@FreeBSD.ORG>
+Copyright (c) 2005-2019, NumPy Developers.
+Copyright (c) 2011 Enthought, Inc
+Copyright (c) 2007, 2011 David Schultz <das@FreeBSD.ORG>
+Copyright (c) 2000-2013 The University of California Berkeley. All rights reserved.
+Copyright (c) 2015 Pauli Virtanen All rights reserved.
+Copyright 1999,2000 Pearu Peterson all rights reserved, Pearu Peterson <pearu@ioc.ee>
+Copyright (C) 1997 - 2002, Makoto Matsumoto and Takuji Nishimura, All rights reserved.
+Copyright (c) 2005-2015, NumPy Developers.
+Copyright (c) 2011 by Enthought, Inc.
+Copyright (c) 2010 by Mark Wiebe (mwwiebe@gmail.com)
+Copyright 2000 Pearu Peterson all rights reserved, Pearu Peterson <pearu@ioc.ee>
+f90: Copyright Absoft Corporation 1994-1998 mV2; Cray Research, Inc. 1994-1996 CF90 (2.x.x.x  f36t87) Version 2.3 Wed Apr 19, 2006  13:05:16
+Copyright (c) 2006-2013 The University of Colorado Denver.  All rights reserved.
+f90: Copyright Absoft Corporation 1994-2002; Absoft Pro FORTRAN Version 8.0
+Copyright (C) 1993 by Sun Microsystems, Inc. All rights reserved.
+Copyright 1999--2011 Pearu Peterson all rights reserved, Pearu Peterson <pearu@cens.ioc.ee>
+Copyright 1999 - 2011 Pearu Peterson all rights reserved.
+Copyright 2015 Robert Kern <robert.kern@gmail.com>
+Copyright (c) 2015 Melissa E. O'Neill
+
+Copyright (c) 2005-2019, NumPy Developers.
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+    * Redistributions of source code must retain the above copyright
+       notice, this list of conditions and the following disclaimer.
+
+    * Redistributions in binary form must reproduce the above
+       copyright notice, this list of conditions and the following
+       disclaimer in the documentation and/or other materials provided
+       with the distribution.
+
+    * Neither the name of the NumPy Developers nor the names of any
+       contributors may be used to endorse or promote products derived
+       from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+Software: opencv-python 4.1.2.30
+Copyright notice:
+Copyright (C) 2000-2018, Intel Corporation, all rights reserved.
+Copyright (C) 2009-2011, Willow Garage Inc., all rights reserved.
+Copyright (C) 2015-2016, OpenCV Foundation, all rights reserved.
+Copyright (C) 2009-2016, NVIDIA Corporation, all rights reserved.
+Copyright (c) 2010, The WebM Project authors. All rights reserved.
+Copyright (C) 2010-2013, Advanced Micro Devices, Inc., all rights reserved.
+Copyright (C) 2015-2016, Itseez Inc., all rights reserved.
+Copyright (c) 2016-2018 Olli-Pekka Heinisuo and contributors
+Copyright (C) 1991, 1999 Free Software Foundation, Inc.
+
+MIT License
+
+Copyright (c) 2016-2018 Olli-Pekka Heinisuo and contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
