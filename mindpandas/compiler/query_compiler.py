@@ -1195,6 +1195,12 @@ class QueryCompiler:
             if hasattr(param, "backend_frame"):
                 kwargs[param_name] = param.backend_frame.to_pandas()
 
+        if groupby_method_name == 'agg':
+            result = getattr(pandas_groupbyframe, 'agg')(**kwargs)
+            if isinstance(result, pandas.Series):
+                return mpd.Series(result)
+            return mpd.DataFrame(result)
+
         try:
             groupby_attr = getattr(pandas.core.groupby.DataFrameGroupBy, groupby_method_name)
         except AttributeError as err:

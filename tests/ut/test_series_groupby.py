@@ -47,6 +47,11 @@ def test_series_groupby():
     def create_input_series_with_na(module):
         return module.Series([1, 2, 3, 3], index=["a", 'a', 'b', np.nan])
 
+    def create_dataframe(module):
+        df = module.DataFrame({'A': ['a', 'b', 'a', 'b', 'a', 'b'],
+                               'B': [4, 8, 2, 6, 1, 3]})
+        return df
+
     def test_groupby_mapping(ser):
         return ser.groupby(["a", "b", "a", "b"]).sum()
 
@@ -79,6 +84,21 @@ def test_series_groupby():
                          'Parrot': 'Parrot1', 'Parrot': 'Parrot1'})
         return ser.groupby(ser).sum()
 
+    def test_groupby_ser_agg_str(ser):
+        return ser.groupby(["a", "b", "a", "b"]).agg('prod')
+
+    def test_groupby_ser_agg_list(ser):
+        return ser.groupby(["a", "b", "a", "b"]).agg(['min', 'max'])
+
+    def test_groupby_ser_agg_func(ser):
+        return ser.groupby(["a", "b", "a", "b"]).agg(np.sum)
+
+    def test_groupby_ser_agg_column_names(ser):
+        return ser.groupby(["a", "b", "a", "b"]).agg(minimum='min', maximum='max')
+
+    def test_groupby_ser_agg_from_df(df):
+        return df.groupby('A')['B'].agg(['min', 'max'])
+
     TESTUTIL.compare(test_groupby_mapping, create_input_series)
     TESTUTIL.compare(test_groupby_mapping_default, create_input_series)
     TESTUTIL.compare(test_groupby_level, create_input_series)
@@ -95,3 +115,8 @@ def test_series_groupby():
     TESTUTIL.compare(test_groupby_drop_true, create_input_series_with_na)
     TESTUTIL.compare(test_groupby_dict_reduced_mapping, create_input_series)
     TESTUTIL.compare(test_groupby_ser_mapping, create_input_series)
+    TESTUTIL.compare(test_groupby_ser_agg_str, create_input_series)
+    TESTUTIL.compare(test_groupby_ser_agg_list, create_input_series)
+    TESTUTIL.compare(test_groupby_ser_agg_func, create_input_series)
+    TESTUTIL.compare(test_groupby_ser_agg_column_names, create_input_series)
+    TESTUTIL.compare(test_groupby_ser_agg_from_df, create_dataframe)
