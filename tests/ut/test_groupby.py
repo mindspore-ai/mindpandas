@@ -16,7 +16,6 @@ import pytest
 import numpy as np
 
 import pandas as pd
-import mindpandas as mpd
 
 from util import TESTUTIL
 
@@ -570,7 +569,7 @@ def test_groupby_key():
                                'Color': ['black', 'white', 'black', 'white'],
                                'Height': [3, 2, 2, 3],
                                'Max Speed': [380., 370., 24., 26.]})
-        return df
+        return module, df
 
     def create_input_series(module):
         df = module.Series(['Color', 'Max Speed'])
@@ -584,85 +583,103 @@ def test_groupby_key():
         columns = ("class", "order", "max_speed")
         return module.DataFrame(data, index=index, columns=columns)
 
-    def test_list(df):
+    def test_list(mo_df):
+        _, df = mo_df
         return df.groupby([1, 2, 3, 4]).count()
 
-    def test_list_sum(df):
+    def test_list_sum(mo_df):
+        _, df = mo_df
         return df.groupby([1, 2, 3, 4]).sum()
 
-    def test_list_of_series(df):
+    def test_list_of_series(mo_df):
+        _, df = mo_df
         return df.groupby([df['Animal'], df['Color']]).sum()
 
-    def test_list_of_labels(df):
+    def test_list_of_labels(mo_df):
         """ This is syntactic sugar of test_list_of_series """
+        _, df = mo_df
         return df.groupby(['Animal', 'Color']).sum()
 
-    def test_list_of_dict(df):
+    def test_list_of_dict(mo_df):
+        _, df = mo_df
         return df.groupby([{'a': 'Falcon', 'b': 'Falcon', 'c': 'Parrot', 'd': 'Parrot'},
                            {'a': 'black', 'b': 'white', 'c': 'white'}]).sum()
 
-    def test_series_mapping(df):
+    def test_series_mapping(mo_df):
+        _, df = mo_df
         return df.groupby(df['Animal']).count()
 
-    def test_dict_mapping(df):
+    def test_dict_mapping(mo_df):
+        _, df = mo_df
         return df.groupby({0: 'Falcon', 1: 'Falcon', 2: 'Parrot', 3: 'Parrot'}).count()
 
     def test_dict_reduced_mapping(df):
         mapping = {'falcon': 'falcon_sec', 'lion': 'lion_sec'}
         return df.groupby(mapping).count()
 
-    def test_nparray_mapping(df):
-        """ nparray only support mapping, not support labels
-        """
+    def test_nparray_mapping(mo_df):
+        """ nparray only support mapping, not support labels """
+        _, df = mo_df
         return df.groupby(np.array(['Falcon', 'Falcon', 'Falcon', 4])).count()
 
-    def test_getitem_by_str_from_label_groupby(df):
-        """ test getitem by a str label of a datagrame.groupby created by a label
-        """
+    def test_getitem_by_str_from_label_groupby(mo_df):
+        """ test getitem by a str label of a datagrame.groupby created by a label """
+        _, df = mo_df
         return df.groupby('Animal')['Max Speed'].sum()
 
-    def test_getitem_by_list_from_label_groupby(df):
+    def test_getitem_by_list_from_label_groupby(mo_df):
+        _, df = mo_df
         return df.groupby('Animal')[['Color', 'Max Speed']].all()
 
-    def test_getitem_by_list_from_lstofindex_groupby(df):
+    def test_getitem_by_list_from_lstofindex_groupby(mo_df):
+        _, df = mo_df
         return df.groupby([1, 2, 3, 4])[['Color', 'Max Speed']].all()
 
-    def test_getitem_by_str_from_lstoflabels_groupby(df):
+    def test_getitem_by_str_from_lstoflabels_groupby(mo_df):
+        _, df = mo_df
         return df.groupby(['Animal', 'Height'])['Max Speed'].sum()
 
-    def test_getitem_by_list_from_lstoflabels_groupby(df):
+    def test_getitem_by_list_from_lstoflabels_groupby(mo_df):
+        _, df = mo_df
         return df.groupby(['Animal', 'Height'])[['Color', 'Max Speed']].all()
 
-    def test_getitem_by_str_from_mapping_groupby(df):
+    def test_getitem_by_str_from_mapping_groupby(mo_df):
+        _, df = mo_df
         groupby_obj = df.groupby([df['Animal'], df['Height']])
         return groupby_obj['Max Speed'].sum()
 
-    def test_getitem_by_list_from_mapping_groupby(df):
+    def test_getitem_by_list_from_mapping_groupby(mo_df):
+        _, df = mo_df
         groupby_obj = df.groupby([df['Animal'], df['Height']])
         return groupby_obj[['Color', 'Max Speed']].count()
 
-    def test_getitem_by_tuple(df):
+    def test_getitem_by_tuple(mo_df):
+        _, df = mo_df
         groupby_obj = df.groupby([df['Animal'], df['Height']])
         return groupby_obj[('Color', 'Max Speed')].all()
 
-    def test_getitem_by_pd_series(df):
+    def test_getitem_by_pd_series(mo_df):
+        _, df = mo_df
         ser = pd.Series(['Color', 'Max Speed'])
         return df.groupby([df['Animal'], df['Height']])[ser].all()
 
-    def test_getitem_by_mpd_series(df):
-        ser = pd.Series(['Color', 'Max Speed']) if isinstance(
-            df, pd.DataFrame) else mpd.Series(['Color', 'Max Speed'])
+    def test_getitem_by_mpd_series(mo_df):
+        module, df = mo_df
+        ser = module.Series(['Color', 'Max Speed'])
         return df.groupby([df['Animal'], df['Height']])[ser].all()
 
-    def test_err_groupby_getitem_by_df(df):
+    def test_err_groupby_getitem_by_df(mo_df):
+        _, df = mo_df
         df_key = pd.DataFrame(['Color', 'Max Speed'])
         df.groupby([df['Animal'], df['Height']])[df_key].all()
 
-    def test_err_groupby_getitem_by_dict(df):
+    def test_err_groupby_getitem_by_dict(mo_df):
+        _, df = mo_df
         dct = {0: 'Color', 1: 'Max Speed'}
         df.groupby([df['Animal'], df['Height']])[dct].all()
 
-    def test_err_groupby_by_class(df):
+    def test_err_groupby_by_class(mo_df):
+        _, df = mo_df
         class ClassA:
             def __init__(self):
                 self.var = 0
@@ -670,7 +687,8 @@ def test_groupby_key():
         grouyby_obj = ClassA()
         df.groupby(grouyby_obj)[['Color', 'Max Speed']].all()
 
-    def test_err_groupby_by_lst_of_class(df):
+    def test_err_groupby_by_lst_of_class(mo_df):
+        _, df = mo_df
         class ClassA:
             def __init__(self):
                 self.var = 0
@@ -678,23 +696,27 @@ def test_groupby_key():
         grouyby_obj = ClassA()
         df.groupby([grouyby_obj])[['Color', 'Max Speed']].all()
 
-    def test_err_groupby_by_empty_list(df):
+    def test_err_groupby_by_empty_list(mo_df):
+        _, df = mo_df
         df.groupby([])[['Color', 'Max Speed']].all()
 
-    def test_err_input_not_df_by_list(df):
+    def test_err_input_not_df_by_list(mo_df):
         """ input_dataframe not mpd.DataFrame, by list
             df should put series here
         """
+        _, df = mo_df
         df.groupby(['Animal', 'Color'])[['Color', 'Max Speed']].all()
 
-    def test_err_input_not_df_by_ser(df):
+    def test_err_input_not_df_by_ser(mo_df):
         """ input_dataframe not mpd.DataFrame, by ser
             df should put series here
         """
+        _, df = mo_df
         df.groupby({0: 'Falcon', 1: 'Falcon', 2: 'Parrot', 3: 'Parrot'})[
             ['Color', 'Max Speed']].all()
 
-    def test_err_mapping_with_unaligned_number_of_elements(df):
+    def test_err_mapping_with_unaligned_number_of_elements(mo_df):
+        _, df = mo_df
         df.groupby([3, 2])[['Color', 'Max Speed']].all()
 
     TESTUTIL.compare(test_list, create_input_dataframe)

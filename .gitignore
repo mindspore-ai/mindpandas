@@ -7,6 +7,7 @@ mindpandas/compiler/__pycache__/
 output/
 tests/ut/__pycache__/
 tests/ut/data/__pycache__/
+tests/st/__pycache__/
 
 #IDE
 .vscode/
