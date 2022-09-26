@@ -17,7 +17,7 @@ import mindpandas.backend.eager.eager_backend as eager_backend
 import mindpandas.iternal_config as i_config
 
 __all__ = ['set_concurrency_mode', 'get_concurrency_mode', 'set_partition_shape', 'get_partition_shape',
-           'set_min_block_size', 'get_min_block_size']
+           'set_adaptive_concurrency', 'get_adaptive_concurrency', 'set_min_block_size', 'get_min_block_size']
 
 
 def set_concurrency_mode(mode, **kwargs):

@@ -1174,7 +1174,7 @@ class EagerFrame(BaseFrame):
             left_parts = self.partitions
             right_parts = right_frame.partitions
         else:
-            left_parts, right_parts, _ = self._copartition(0, right_frame, join_type, sort=True)
+            left_parts, right_parts, _ = self._copartition(0, right_frame, join_type, sort=False)
             right_parts = right_parts[0]
         new_frame = self.ops.injective_map(left_parts, None, right_parts, func, False)
         return EagerFrame(new_frame)
