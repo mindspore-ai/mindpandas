@@ -570,6 +570,9 @@ class SeriesComparison:
             # need to wrap the single bool to assign index
             return pandas.Series(self.func(series, other))
         if self.is_scalar:
+            if series.empty:
+                series = pandas.Series(None)
+                return self.func(series, other)
             return self.func(series.squeeze('columns'), other)
         return self.func(series.squeeze('columns'), other.squeeze('columns'))
 
