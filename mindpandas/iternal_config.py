@@ -22,44 +22,10 @@ _min_block_size = 1
 adaptive_concurrency = False
 multithread_shape = (2, 2)
 multiprocess_shape = (16, 16)
-multiprocess_backend = 'yr'
 
 num_op_actors = 16
 use_shuffle_actor = True
 functions = 'pandas'
-
-
-def set_multiprocess_backend(backend):
-    """
-    Set the default multiprocess backend for adaptive optimization use.
-
-    Args:
-        backend(str): 'yr'
-
-    Raises:
-        ValueError: If mode is not 'yr'
-
-    Examples:
-        >>> # Change the multiprocess backend to 'yr'
-        >>> mindpandas.config.set_multiprocess_backend('yr')
-    """
-    global multiprocess_backend
-    multiprocess_backend = backend
-
-
-def get_multiprocess_backend():
-    """
-    Get the default multiprocess backend for adaptive optimization use.
-
-    Returns:
-        str, default multiprocess backend.
-
-    Examples:
-        >>> # Get the default multiprocess backend
-        >>> backend = mindpandas.config.get_multiprocess_backend
-    """
-    global multiprocess_backend
-    return multiprocess_backend
 
 
 def set_concurrency_mode(mode):

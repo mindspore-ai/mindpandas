@@ -31,7 +31,7 @@ from pandas.util._validators import validate_bool_kwarg
 
 import mindpandas as mpd
 from mindpandas.backend.base_frame import BaseFrame
-from . import iternal_config as config
+from . import iternal_config as i_config
 from .iterator import DataFrameIterator
 from .util import is_full_grab_slice
 from .util import hashable
@@ -1649,7 +1649,7 @@ class DataFrame:
     def get_object_ref(self):
         """Return object id in list when using shared memory backends. Partition shape is not preserved in the
         result."""
-        if config.get_concurrency_mode() not in ['yr']:
+        if i_config.get_concurrency_mode() not in ['yr']:
             warnings.warn("Warning: Can only call get_object_id when using yr backend.")
             return None
 

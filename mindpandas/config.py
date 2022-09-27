@@ -49,7 +49,6 @@ def set_concurrency_mode(mode, **kwargs):
 
     if mode == 'multiprocess':
         i_config.set_concurrency_mode('yr')
-        i_config.set_multiprocess_backend('yr')
         address = kwargs.get('address', None)
         eager_backend.set_yr_backend(server_address=address, ds_address=address)
     elif mode == 'multithread':
@@ -73,21 +72,6 @@ def get_concurrency_mode():
     if mode == 'yr':
         mode = 'multiprocess'
     return mode
-
-
-def get_multiprocess_backend():
-    """
-    Get the default multiprocess backend for adaptive optimization use.
-
-    Returns:
-        str, default multiprocess backend.
-
-    Examples:
-        >>> # Get the default multiprocess backend
-        >>> import mindpandas as pd
-        >>> backend = pd.config.get_multiprocess_backend()
-    """
-    return i_config.get_multiprocess_backend()
 
 
 def set_partition_shape(shape):
@@ -178,7 +162,7 @@ def get_min_block_size():
     return i_config.get_min_block_size()
 
 
-def set_adaptive_concurrency(adaptive):
+def set_adaptive_concurrency(adaptive, **kwargs):
     """
     Users can set adaptive concurrency to allow read_csv to automatically select the concurrency mode based on the
     file size. Available options are "True" or "False". When set to True, file sizes read from read_csv greater
@@ -188,6 +172,8 @@ def set_adaptive_concurrency(adaptive):
 
     Args:
         adaptive(bool): True to turn on adaptive concurrency, False to turn off adaptive concurrency.
+        **kwargs: For multiprocess dataframes.
+-            * address: The ip address of the master node, required when adaptive is True.
 
     Raises:
         ValueError: if adaptive is not True or False.
@@ -199,6 +185,10 @@ def set_adaptive_concurrency(adaptive):
     """
     if adaptive not in (0, 1):
         raise ValueError(f"adaptive must be False or True, but got {adaptive}.")
+
+    if adaptive:
+        address = kwargs.get('address', None)
+        eager_backend.set_yr_backend(server_address=address, ds_address=address)
 
     i_config.set_adaptive_concurrency(adaptive)
 
@@ -220,7 +210,7 @@ def get_adaptive_concurrency():
 
 def get_adaptive_partition_shape(mode):
     """
-    Get the partition shape for a particular concurrency mode.
+    Get the partition shape based on mode for adaptive concurrency.
 
     Args:
         mode(str): 'multithread' or 'multiprocess'.

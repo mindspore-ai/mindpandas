@@ -138,6 +138,8 @@ def read_csv(filepath, **kwargs):
     if mpd.config.get_adaptive_concurrency():
         if file_size < adaptive_filesize_threshold:
             eager_backend.set_python_backend()
+        else:
+            eager_backend.set_yr_backend(server_address='use_default_initialized')
 
     if _validate_args(filepath, **kwargs):
         try:
@@ -181,7 +183,7 @@ def from_pandas(pandas_df, container_type=pandas.DataFrame):
         else:
             from mindpandas.backend.eager.multiprocess_operators import MultiprocessOperator as mp_ops
             ops = mp_ops
-            partition_shape = mpd.config.get_adaptive_partition_shape(mpd.config.get_multiprocess_backend())
+            partition_shape = mpd.config.get_adaptive_partition_shape('multiprocess')
     else:
         ops = _get_ops()
         partition_shape = mpd.iternal_config.get_partition_shape()
@@ -274,7 +276,7 @@ def fast_make_splits(file_path, file_size=None):
         if file_size < adaptive_filesize_threshold:
             partition_shape = mpd.config.get_adaptive_partition_shape('multithread')
         else:
-            partition_shape = mpd.config.get_adaptive_partition_shape(mpd.config.get_multiprocess_backend())
+            partition_shape = mpd.config.get_adaptive_partition_shape('multiprocess')
     else:
         partition_shape = mpd.iternal_config.get_partition_shape()
     num_chunks = partition_shape[0]
