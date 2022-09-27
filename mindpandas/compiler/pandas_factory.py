@@ -574,6 +574,12 @@ class SeriesComparison:
                 series = pandas.Series(None)
                 return self.func(series, other)
             return self.func(series.squeeze('columns'), other)
+        if other.empty:
+            other = pandas.Series(None)
+            if series.empty:
+                series = pandas.Series(None)
+                return self.func(series, other)
+            return self.func(series.squeeze('columns'), other)
         return self.func(series.squeeze('columns'), other.squeeze('columns'))
 
 
