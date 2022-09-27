@@ -22,7 +22,7 @@ _min_block_size = 1
 adaptive_concurrency = False
 multithread_shape = (2, 2)
 multiprocess_shape = (16, 16)
-multiprocess_backend = 'multiprocess'
+multiprocess_backend = 'yr'
 
 num_op_actors = 16
 use_shuffle_actor = True
@@ -34,14 +34,14 @@ def set_multiprocess_backend(backend):
     Set the default multiprocess backend for adaptive optimization use.
 
     Args:
-        backend(str): 'multiprocess'
+        backend(str): 'yr'
 
     Raises:
-        ValueError: If mode is not 'multiprocess'
+        ValueError: If mode is not 'yr'
 
     Examples:
-        >>> # Change the multiprocess backend to 'multiprocess'
-        >>> mindpandas.config.set_multiprocess_backend('multiprocess')
+        >>> # Change the multiprocess backend to 'yr'
+        >>> mindpandas.config.set_multiprocess_backend('yr')
     """
     global multiprocess_backend
     multiprocess_backend = backend
@@ -70,10 +70,10 @@ def set_concurrency_mode(mode):
         Lazy mode is a beta version and still in development.
 
     Args:
-        mode(str): This parameter can be set to 'multithread' or 'multiprocess'.
+        mode(str): This parameter can be set to 'multithread' or 'yr'.
 
     Raises:
-        ValueError: If mode is not 'multithread' or 'multiprocess'.
+        ValueError: If mode is not 'multithread' or 'yr'.
     """
     global _concurrency_mode
     _concurrency_mode = mode
@@ -201,10 +201,10 @@ def get_adaptive_partition_shape(mode):
     Get the partition shape for a particular concurrency mode.
 
     Args:
-        mode(str): 'multithread' or 'multiprocess'
+        mode(str): 'multithread' or 'yr'
 
     Raises:
-        ValueError: if mode is not 'multithread' or 'multiprocess'
+        ValueError: if mode is not 'multithread' or 'yr'
 
     Returns:
         tuple, the partition shape for that mode.
@@ -213,7 +213,7 @@ def get_adaptive_partition_shape(mode):
         >>> # Get the adaptive partition shape
         >>> adaptive = mindpandas.config.get_adaptive_partition_shape
     """
-    if mode == 'multiprocess':
+    if mode == 'yr':
         global multiprocess_shape
         return multiprocess_shape
     global multithread_shape
