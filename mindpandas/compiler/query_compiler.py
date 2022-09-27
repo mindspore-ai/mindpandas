@@ -591,10 +591,27 @@ class QueryCompiler:
         by_dataframe = input_dataframe.by_dataframe
         by_names = input_dataframe.by_names
         is_mapping = input_dataframe.is_mapping
+        get_item_key = input_dataframe.get_item_key
 
         # input_dataframe: DataFrameGroupBy type
         kwargs['groupby_kwargs'] = input_dataframe.kwargs  # add constructor parameters into kwargs
         kwargs['is_mapping'] = is_mapping
+
+        if isinstance(input_dataframe, mpd.SeriesGroupBy) and get_item_key is not None:
+            index = input_dataframe.by_dataframe.to_pandas()
+            if isinstance(index, pandas.DataFrame):
+                index = pandas.MultiIndex.from_frame(index)
+            else:
+                index = pandas.Index(index)
+
+            new_dataframe = mpd.Series(input_dataframe.backend_frame.get_columns(get_item_key))
+            new_dataframe.index = index
+
+            input_dataframe = mpd.SeriesGroupBy(
+                new_dataframe,
+                drop=False,
+                **kwargs,
+            )
 
         if groupby_method_name == "size":
             agg_func = {input_dataframe.columns[0]: "size"}
@@ -1173,6 +1190,7 @@ class QueryCompiler:
         """
         by = input_dataframe.by
         axis = input_dataframe.axis
+        get_item_key = input_dataframe.get_item_key
         level = input_dataframe.kwargs['level']
         sort = input_dataframe.kwargs['sort']
         group_keys = input_dataframe.kwargs['group_keys']
@@ -1182,15 +1200,29 @@ class QueryCompiler:
             by = [x.to_pandas() for x in by]
         elif isinstance(by, mpd.Series):
             by = by.to_pandas()
-        pandas_groupbyframe = input_dataframe.backend_frame \
-            .to_pandas(force_series=force_series) \
-            .groupby(by, axis=axis,
-                     level=level,
-                     as_index=input_dataframe.drop,
-                     sort=sort,
-                     group_keys=group_keys,
-                     observed=observed,
-                     dropna=dropna)
+
+        if not force_series or not get_item_key:
+            pandas_groupbyframe = input_dataframe.backend_frame \
+                .to_pandas(force_series=force_series) \
+                .groupby(by, axis=axis,
+                         level=level,
+                         as_index=input_dataframe.drop,
+                         sort=sort,
+                         group_keys=group_keys,
+                         observed=observed,
+                         dropna=dropna)
+        else:
+            pandas_groupbyframe = input_dataframe.backend_frame \
+                .to_pandas(force_series=False) \
+                .groupby(by, axis=axis,
+                         level=level,
+                         as_index=input_dataframe.drop,
+                         sort=sort,
+                         group_keys=group_keys,
+                         observed=observed,
+                         dropna=dropna)
+        if get_item_key:    # get item case
+            pandas_groupbyframe = pandas_groupbyframe[get_item_key]
         for param_name, param in kwargs.items():
             if hasattr(param, "backend_frame"):
                 kwargs[param_name] = param.backend_frame.to_pandas()

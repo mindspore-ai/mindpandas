@@ -551,9 +551,39 @@ def test_groupby_getitem():
     def groupby_getitem_multicol(df):
         return df.groupby([0, 1])[[2, 3]].count()
 
+    def create_input_dataframe(module):
+        df = module.DataFrame({'A': 'a a b'.split(),
+                               'B': [1, 2, 3],
+                               'C': [4, 6, 5]})
+        return df
+
+    def groupby_getitem_df(df):
+        gb = df.groupby('A')
+        return gb[['B', 'C']].sum()
+
+    def groupby_getitem_df1(df):
+        gb = df.groupby('A')
+        return gb[['C']].sum()
+
+    def groupby_getitem_df2(df):
+        gb = df.groupby(['A', 'B'])
+        return gb[['C']].sum()
+
+    def groupby_getitem_ser(df):
+        gb = df.groupby('A')
+        return gb['C'].sum()
+
+    def groupby_getitem_ser2(df):
+        gb = df.groupby(['A', 'B'])
+        return gb['C'].sum()
+
     TESTUTIL.compare(groupby_getitem_series, create_fn=TESTUTIL.create_df_gb_frame)
     TESTUTIL.compare(groupby_getitem_multicol, create_fn=TESTUTIL.create_df_gb_frame)
-
+    TESTUTIL.compare(groupby_getitem_df, create_fn=create_input_dataframe)
+    TESTUTIL.compare(groupby_getitem_df1, create_fn=create_input_dataframe)
+    TESTUTIL.compare(groupby_getitem_df2, create_fn=create_input_dataframe)
+    TESTUTIL.compare(groupby_getitem_ser, create_fn=create_input_dataframe)
+    TESTUTIL.compare(groupby_getitem_ser2, create_fn=create_input_dataframe)
 
 @pytest.mark.usefixtures("set_mode", "set_shape")
 def test_groupby_key():
@@ -1033,6 +1063,60 @@ def test_groupby_agg():
     TESTUTIL.compare(test_groupby_agg_list, create_groupby_dataframe)
     TESTUTIL.compare(test_groupby_agg_dict, create_groupby_dataframe)
 
+@pytest.mark.usefixtures("set_mode", "set_shape")
+def test_groupby_apply():
+    """
+    Test groupby function apply
+    Description: tests df.groupby with apply
+    Expectation: same output as pandas
+    """
+
+    def create_input_dataframe(module):
+        df = module.DataFrame({'A': 'a a b'.split(),
+                               'B': [1, 2, 3],
+                               'C': [4, 6, 5]})
+        return df
+
+    def test_apply_ret_df(df):
+        """ Test apply function which the function passed to apply takes a DataFrame as
+            its argument and returns a DataFrame
+        """
+        gb_obj = df.groupby('A')
+        return gb_obj.apply(lambda x: x / x.sum())
+
+    def test_apply_ret_df2(df):
+        gb_obj = df.groupby('A')
+        return gb_obj[['B', 'C']].apply(lambda x: x / x.sum())
+
+    def test_apply_ret_ser(df):
+        """ Test apply function which function passed to apply takes a DataFrame as
+            its argument and returns a Series
+        """
+        gb_obj = df.groupby('A')
+        return gb_obj[['B', 'C']].apply(lambda x: x.astype(float).max() - x.min())
+
+    def test_apply_ret_scalar(df):
+        """ Test apply function which function passed to apply takes a DataFrame as
+            its argument and returns a Scalar
+        """
+        gb_obj = df.groupby('A')
+        return gb_obj.apply(lambda x: x.C.max() - x.B.min())
+
+    def test_apply_ret_scalar2(df):
+        gb_obj = df.groupby('A')
+        return gb_obj[['B', 'C']].apply(lambda x: x.C.max() - x.B.min())
+
+    def test_series_apply(df):
+        gb_obj = df.groupby('A')
+        return gb_obj['B'].apply(lambda x: x / x.sum())
+
+    TESTUTIL.compare(test_apply_ret_df, create_input_dataframe)
+    TESTUTIL.compare(test_apply_ret_df2, create_input_dataframe)
+    TESTUTIL.compare(test_apply_ret_ser, create_input_dataframe)
+    TESTUTIL.compare(test_apply_ret_scalar, create_input_dataframe)
+    TESTUTIL.compare(test_apply_ret_scalar2, create_input_dataframe)
+    TESTUTIL.compare(test_series_apply, create_input_dataframe)
+
 
 if __name__ == "__main__":
     import argparse
@@ -1063,6 +1147,8 @@ if __name__ == "__main__":
     test_groupby_arguments()
     test_groupby_axis1()
     test_groupby_groups()
+    test_groupby_agg()
+    test_groupby_apply()
 
     if args.csv_file_list is not None:
         print(args.by_keys_list)
