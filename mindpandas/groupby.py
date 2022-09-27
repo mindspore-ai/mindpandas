@@ -327,6 +327,32 @@ class DataFrameGroupBy:
                 groupby_method_name, self, **kwargs)
         return output_dataframe
 
+    def agg(self, arg=None, **kwargs):
+        """
+        This func is only used for demo purposes.
+        """
+        if arg == 'all':
+            return self.all(**kwargs)
+        if arg == 'any':
+            return self.any(**kwargs)
+        if arg == 'count':
+            return self.count(**kwargs)
+        if arg == 'max':
+            return self.max(**kwargs)
+        if arg == 'min':
+            return self.min(**kwargs)
+        if arg == 'prod':
+            return self.prod(**kwargs)
+        if arg == 'size':
+            return self.size(**kwargs)
+        if arg == 'sum':
+            return self.sum(**kwargs)
+
+        force_series = self.ndim == 1
+        kwargs["func"] = arg
+        result = self._qc.groupby_default_to_pandas(self, "agg", force_series, **kwargs)
+        return result
+
     def all(self, skipna=True, **kwargs):
         kwargs['skipna'] = skipna
         return self.func_wrapper('all', **kwargs)

@@ -998,6 +998,42 @@ def test_groupby_groups():
     TESTUTIL.compare(test_groupby_indices_level1, create_input_dataframe)
 
 
+@pytest.mark.usefixtures("set_mode", "set_shape")
+def test_groupby_agg():
+    """
+    This func is only used for demo purposes.
+    Description: tests df.groupby.agg
+    Expectation: same output as pandas df.groupby.agg
+    """
+
+    def create_groupby_dataframe(module):
+        df = module.DataFrame({'A': [5, 6, 5, 6],
+                               'B': [1, 2, 3, 4],
+                               'C': [4, 9, 2, 7]})
+        return df
+
+    def test_groupby_agg_str(df):
+        df = df.groupby('A').agg('count')
+        return df
+
+    def test_groupby_agg_func(df):
+        df = df.groupby('A').agg(np.sum)
+        return df
+
+    def test_groupby_agg_list(df):
+        df = df.groupby('A').agg(['min', 'max'])
+        return df
+
+    def test_groupby_agg_dict(df):
+        df = df.groupby('A').agg({'B': ['min', 'max'], 'C': 'sum'})
+        return df
+
+    TESTUTIL.compare(test_groupby_agg_str, create_groupby_dataframe)
+    TESTUTIL.compare(test_groupby_agg_func, create_groupby_dataframe)
+    TESTUTIL.compare(test_groupby_agg_list, create_groupby_dataframe)
+    TESTUTIL.compare(test_groupby_agg_dict, create_groupby_dataframe)
+
+
 if __name__ == "__main__":
     import argparse
 
