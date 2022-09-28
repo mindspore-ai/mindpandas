@@ -242,7 +242,7 @@ class MultiprocessOperator(SinglethreadOperator):
         return super().repartition(parts, output_shape, mblock_size)
 
     @classmethod
-    def axis_repartition(cls, parts, axis=0, mblock_size=32, by='size', by_data=None):
+    def axis_repartition(cls, parts, axis=0, mblock_size=1, by='size', by_data=None):
         repart_range_dict, axis_size = cls.get_axis_repart_range(parts, axis, mblock_size, by=by, by_data=by_data)
         if axis == 0:
             new_shape_row = axis_size

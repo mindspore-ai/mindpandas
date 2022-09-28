@@ -36,6 +36,7 @@ from pandas.core.reshape.util import cartesian_product
 from pandas.io.common import get_handle
 
 import mindpandas as mpd
+import mindpandas.iternal_config as i_config
 from mindpandas.backend.base_general import BaseGeneral
 from mindpandas.backend.base_io import BaseIO
 from mindpandas.compiler.function_factory import FunctionFactory as ff
@@ -889,7 +890,8 @@ class QueryCompiler:
             df_row_split_points = input_dataframe.backend_frame.get_axis_split_points(axis=0)
             key_row_split_points = key.backend_frame.get_axis_split_points(axis=0)
             if not np.array_equal(df_row_split_points, key_row_split_points):
-                key = key.backend_frame.axis_repartition(axis=0, by='split_pos', by_data=df_row_split_points)
+                key = key.backend_frame.axis_repartition(axis=0, mblock_size=i_config.get_min_block_size(),
+                                                         by='split_pos', by_data=df_row_split_points)
                 frame = input_dataframe.backend_frame.injective_map(key, None, get_item_fn, is_scalar=True)
             else:
                 frame = input_dataframe.backend_frame.injective_map(key.backend_frame, None, get_item_fn,
@@ -1904,7 +1906,7 @@ class QueryCompiler:
         if dtype == 'category':
             shape = df.shape
             frame = df.backend_frame.reduce(func, axis=0)
-            frame = frame.repartition(shape)
+            frame = frame.repartition(shape, i_config.get_min_block_size())
         else:
             frame = df.backend_frame.map(func)
         return mpd.DataFrame(frame)
@@ -2024,9 +2026,11 @@ class QueryCompiler:
         cond_row_split_points = cond.backend_frame.get_axis_split_points(axis=0)
         cond_col_split_points = cond.backend_frame.get_axis_split_points(axis=1)
         if not np.array_equal(df_row_split_points, cond_row_split_points):
-            cond.backend_frame.axis_repartition(axis=0, by='split_pos', by_data=df_row_split_points)
+            cond.backend_frame.axis_repartition(axis=0, mblock_size=i_config.get_min_block_size(),
+                                                by='split_pos', by_data=df_row_split_points)
         if not np.array_equal(df_col_split_points, cond_col_split_points):
-            cond.backend_frame.axis_repartition(axis=1, by='split_pos', by_data=df_col_split_points)
+            cond.backend_frame.axis_repartition(axis=1, mblock_size=i_config.get_min_block_size(),
+                                                by='split_pos', by_data=df_col_split_points)
         func = ff.where(inplace=inplace,
                         axis=axis,
                         level=level,
@@ -2039,9 +2043,11 @@ class QueryCompiler:
             other_row_split_points = other.backend_frame.get_axis_split_points(axis=0)
             other_col_split_points = other.backend_frame.get_axis_split_points(axis=1)
             if not np.array_equal(df_row_split_points, other_row_split_points):
-                other.backend_frame.axis_repartition(axis=0, by='split_pos', by_data=df_row_split_points)
+                other.backend_frame.axis_repartition(axis=0, mblock_size=i_config.get_min_block_size(),
+                                                     by='split_pos', by_data=df_row_split_points)
             if not np.array_equal(df_col_split_points, other_col_split_points):
-                other.backend_frame.axis_repartition(axis=1, by='split_pos', by_data=df_col_split_points)
+                other.backend_frame.axis_repartition(axis=1, mblock_size=i_config.get_min_block_size(),
+                                                     by='split_pos', by_data=df_col_split_points)
             frame = df.backend_frame.injective_map(cond.backend_frame, other.backend_frame, func)
         if inplace is True:
             df.set_backend_frame(frame=frame)

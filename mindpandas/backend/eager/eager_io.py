@@ -23,6 +23,7 @@ import pandas._libs.lib as lib
 from pandas.io.common import infer_compression
 
 import mindpandas as mpd
+import mindpandas.iternal_config as i_config
 import mindpandas.backend.eager.eager_backend as eager_backend
 from .eager_frame import EagerFrame
 
@@ -33,9 +34,9 @@ adaptive_pandas_df_memusage_threshold = 1000000000  # 1 GB
 
 def _get_ops():
     """Return the corresponding operator according to concurrency_mode"""
-    if mpd.iternal_config.get_concurrency_mode() == "yr":
+    if i_config.get_concurrency_mode() == "yr":
         from mindpandas.backend.eager.multiprocess_operators import MultiprocessOperator as ops
-    elif mpd.iternal_config.get_concurrency_mode() == "multithread":
+    elif i_config.get_concurrency_mode() == "multithread":
         from mindpandas.backend.eager.multithread_operators import MultithreadOperator as ops
     else:
         from mindpandas.backend.eager.partition_operators import SinglethreadOperator as ops
@@ -128,7 +129,8 @@ def read_csv(filepath, **kwargs):
         df = pandas.read_csv(filepath, **kwargs)
         partition = eager_backend.get_partition().put(data=df, coord=(0, 0))
         output_frame = EagerFrame(np.array([[partition]]))  # single partition
-        output_frame = output_frame.repartition(output_frame.default_partition_shape)
+        output_frame = output_frame.repartition(output_shape=output_frame.default_partition_shape,
+                                                mblock_size=i_config.get_min_block_size())
         return output_frame
 
     if isinstance(filepath, str):
@@ -151,7 +153,8 @@ def read_csv(filepath, **kwargs):
             output_frame = fast_read_csv(filepath,
                                          header=kwargs.get('header', "infer"),
                                          file_size=file_size)
-            output_frame = output_frame.repartition(output_shape=output_frame.default_partition_shape)
+            output_frame = output_frame.repartition(output_shape=output_frame.default_partition_shape,
+                                                    mblock_size=i_config.get_min_block_size())
             return output_frame
         except Exception as err:
             log.warning("Issue with parallel read csv, defaulting back to pandas read_csv. %s", err)
@@ -164,7 +167,8 @@ def read_feather(filepath, **kwargs):
     df = pandas.read_feather(filepath, **kwargs)
     partition = eager_backend.get_partition().put(data=df, coord=(0, 0))
     output_frame = EagerFrame(np.array([[partition]]))
-    output_frame = output_frame.repartition(output_frame.default_partition_shape)
+    output_frame = output_frame.repartition(output_shape=output_frame.default_partition_shape,
+                                            mblock_size=i_config.get_min_block_size())
     return output_frame
 
 
@@ -190,12 +194,12 @@ def from_pandas(pandas_df, container_type=pandas.DataFrame):
             partition_shape = mpd.config.get_adaptive_partition_shape('multiprocess')
     else:
         ops = _get_ops()
-        partition_shape = mpd.iternal_config.get_partition_shape()
+        partition_shape = i_config.get_partition_shape()
     num_rows = len(pandas_df)
     num_cols = len(pandas_df.columns) if isinstance(pandas_df, pandas.DataFrame) else 1
     row_slices, col_slices = ops.get_slicing_plan(num_rows, num_cols,
                                                   partition_shape,
-                                                  mpd.iternal_config.get_min_block_size())
+                                                  i_config.get_min_block_size())
     output_partitions = ops.partition_pandas(pandas_df, row_slices, col_slices, container_type)
     output_frame = EagerFrame(output_partitions)
     return output_frame
@@ -269,7 +273,7 @@ def fast_make_splits(file_path, file_size=None):
         else:
             partition_shape = mpd.config.get_adaptive_partition_shape('multiprocess')
     else:
-        partition_shape = mpd.iternal_config.get_partition_shape()
+        partition_shape = i_config.get_partition_shape()
     num_chunks = partition_shape[0]
     chunk_size = max(1, int(file_size / num_chunks))
     offset = chunk_size
