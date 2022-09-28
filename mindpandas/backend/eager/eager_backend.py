@@ -22,7 +22,7 @@ backend_scheduler = ''
 backend_remote_functions = ''
 
 
-def set_multiprocess_backend(**kwargs):
+def set_yr_backend(**kwargs):
     """Init yr backend if users set backend as yr"""
     global backend_scheduler
     global backend_partition

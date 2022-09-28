@@ -70,24 +70,21 @@ def yrctl():
 @click.option("--master", is_flag=True, help='set if starting a master node')
 @click.option("-a", "--address", type=str, default=None, help='the ip address of the master node')
 @click.option("--cpu", type=int, default=None, help='number of cpus to use')
-@click.option("-p", "--password", type=str, default='4b7cffe5c9ca38db3db3bbabdf858c10',
-              help='password for redis and etcd service')
 @click.option("--datamem", type=int, default=None, help='amount of memory used by datasystem')
 @click.option("--mem", type=int, default=None, help='amount of general purpose memory')
-def start(master, address, cpu, password, datamem, mem):
+def start(master, address, cpu, datamem, mem):
+    """The command to start distributed executor service."""
     if cpu is None:
         cpu = multiprocessing.cpu_count() * 1000
     available_memory = psutil.virtual_memory().available // (1 << 20)  # Available memory in MB.
     if datamem is None and mem is None:
         datamem = int(available_memory * 0.25)
         mem = int(available_memory * 0.75)
-    if address == "localhost":
-        address = "127.0.0.1"
     local_address = address if master else None
     options = ['-m' if master else '',
                f'-a {address}' if address is not None else '',
                f'--localaddress {local_address}' if local_address is not None else '',
-               f'-p {password}',
+               f'-p 4b7cffe5c9ca38db3db3bbabdf858c10',
                f'--cpu {cpu}' if cpu is not None else '',
                f'--datamem {datamem}' if datamem is not None else '',
                f'--mem {mem}' if mem is not None else '']
@@ -95,14 +92,12 @@ def start(master, address, cpu, password, datamem, mem):
     option_str = ' '.join(options)
     print(f"Starting distributed executor with option: address={address}, cpu={cpu}, datamem={datamem}, mem={mem}")
     cmd = f"{_get_yrctl_bin_path()} start {option_str}"
-    os.system(cmd)
+    subprocess.run(cmd, check=True, shell=True)
 
 
 @click.command(help="used to stop the fleeting cluster")
-@click.option("--master", is_flag=True, help="Stop master service on current node.")
-def stop(master):
-    options = "-m" if master else ""
-    os.system(f"{_get_yrctl_bin_path()} stop {options}")
+def stop():
+    os.system(f"{_get_yrctl_bin_path()} stop")
 
 
 yrctl.add_command(start)

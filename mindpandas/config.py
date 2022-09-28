@@ -46,13 +46,13 @@ def set_concurrency_mode(mode, **kwargs):
     if mode not in support_mode:
         raise ValueError(f"Mode {mode} is not supported.")
 
-    i_config.set_concurrency_mode(mode)
-
     if mode == 'multiprocess':
-        i_config.set_multiprocess_backend('multiprocess')
+        i_config.set_concurrency_mode('yr')
+        i_config.set_multiprocess_backend('yr')
         address = kwargs.get('address', None)
-        eager_backend.set_multiprocess_backend(server_address=address, ds_address=address)
+        eager_backend.set_yr_backend(server_address=address, ds_address=address)
     elif mode == 'multithread':
+        i_config.set_concurrency_mode(mode)
         eager_backend.set_python_backend()
 
 
@@ -69,7 +69,7 @@ def get_concurrency_mode():
         >>> mode = pd.get_concurrency_mode()
     """
     mode = i_config.get_concurrency_mode()
-    if mode == 'multiprocess':
+    if mode == 'yr':
         mode = 'multiprocess'
     return mode
 
@@ -238,5 +238,5 @@ def get_adaptive_partition_shape(mode):
     if mode not in support_mode:
         raise ValueError(f"Mode {mode} is not supported.")
     if mode == 'multiprocess':
-        mode = 'multiprocess'
+        mode = 'yr'
     return i_config.get_adaptive_partition_shape(mode)
