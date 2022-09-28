@@ -221,6 +221,85 @@ class TestUtil:
                 df.to_csv(name)
         return df
 
+    def create_df_index_str_list(self, module):
+        """
+        Return a specific type DataFrame.
+        """
+
+        data = np.arange(self.rows * self.columns, 0, -1).reshape(self.rows, self.columns)
+        data = data * 3
+        # create duplicate row
+        data[1] = data[3]
+        columns = [chr(i) for i in range(65, 65 + self.columns)]
+        index = [str(i) for i in range(self.rows)]
+
+        df = module.DataFrame(data, index=index, columns=columns)
+        return df
+
+    def create_df_index_integer_list(self, module):
+        """
+        Return a specific type DataFrame.
+        """
+        data = np.arange(self.rows * self.columns, 0, -1).reshape(self.rows, self.columns)
+        data = data * 3
+        # create duplicate row
+        data[1] = data[3]
+        columns = [chr(i) for i in range(65, 65 + self.columns)]
+        index = [i for i in range(self.rows)]
+        df = module.DataFrame(data, index=index, columns=columns)
+        return df
+
+    def create_df_index_range(self, module):
+        """
+        Return a specific type DataFrame.
+        """
+        data = np.arange(self.rows * self.columns, 0, -1).reshape(self.rows, self.columns)
+        data = data * 3
+        # create duplicate row
+        data[1] = data[3]
+        columns = [chr(i) for i in range(65, 65 + self.columns)]
+        index = pd.RangeIndex(start=0, stop=self.rows, step=1)
+
+        df = module.DataFrame(data, index=index, columns=columns)
+        return df
+
+
+    def create_df_index_str_list_2(self, df, offset):
+        """
+        Return a specific type DataFrame.
+        """
+        rows = self.rows
+        columns = self.columns
+        data = np.arange(rows * columns, 0, -1).reshape(rows, columns)
+        index = [str(i+offset) for i in range(len(df.index))]
+        if isinstance(df, pd.DataFrame):
+            return pd.DataFrame(data, index=index)
+        return mpd.DataFrame(data, index=index)
+
+    def create_df_index_integer_list_2(self, df, offset):
+        """
+        Return a specific type DataFrame.
+        """
+        rows = self.rows
+        columns = self.columns
+        data = np.arange(rows * columns, 0, -1).reshape(rows, columns)
+        index = [i+offset for i in range(len(df.index))]
+        if isinstance(df, pd.DataFrame):
+            return pd.DataFrame(data, index=index)
+        return mpd.DataFrame(data, index=index)
+
+    def create_df_index_range_2(self, df, offset):
+        """
+        Return a specific type DataFrame.
+        """
+        rows = self.rows
+        columns = self.columns
+        data = np.arange(rows * columns, 0, -1).reshape(rows, columns)
+        index = pd.RangeIndex(start=0-offset, stop=rows-offset, step=1)
+        if isinstance(df, pd.DataFrame):
+            return pd.DataFrame(data, index=index)
+        return mpd.DataFrame(data, index=index)
+
     def create_df_has_duplicate_index(self, module, seed=100):
         """
         Return a DataFrame that has duplicated index.

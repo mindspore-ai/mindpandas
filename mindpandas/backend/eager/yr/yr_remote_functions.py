@@ -151,3 +151,26 @@ def _remote_concat_segments(data_id_list, axis, repart_range_dict):
         output_data_list.append(output_data_id)
         output_meta_list.append(output_meta_id)
     return output_data_list, output_meta_list
+
+
+@yr.invoke(return_nums=2)
+def _remote_concat_copartition(data_id_list, axis, index_map, func=None):
+    """Concat data along specified axis."""
+    data_list = yr.get([*data_id_list])
+    data = pandas.concat([part for part in data_list], axis=axis)
+    output_data_list, output_meta_list = [], []
+    if func is not None:
+        index_map = func(data.index)
+    for idx in range(len(index_map)):
+        if index_map[idx] is None:
+            output = pandas.DataFrame()
+        else:
+            if isinstance(index_map[idx], list):
+                index_map[idx] = set(index_map[idx])
+            output = data.loc[index_map[idx]]
+        output_data, output_meta_data = partition.process_raw_data(output)
+        output_data_id = yr.put(output_data)
+        output_meta_id = yr.put(output_meta_data)
+        output_data_list.append(output_data_id)
+        output_meta_list.append(output_meta_id)
+    return output_data_list, output_meta_list

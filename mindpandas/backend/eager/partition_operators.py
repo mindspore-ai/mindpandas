@@ -15,9 +15,12 @@
 """
 Module for performing operations on partitions using Python backend.
 """
+from collections import defaultdict
 import warnings
+import hashlib
 import numpy as np
 import pandas
+from pandas.api.types import is_numeric_dtype
 
 from .partition import Partition
 
@@ -723,3 +726,56 @@ class SinglethreadOperator:
             for col in range(base_partitions.shape[1])
         ])
         return result_blocks.T if not axis else result_blocks
+
+
+    @classmethod
+    def copartition(cls, parts, is_range, **kwargs):
+        """Copartition dataframe"""
+        num_rows, num_cols = parts.shape
+        container_type = parts[0, 0].container_type
+
+        def create_index_map_numeric(part_index, num_output):
+            output_index = defaultdict(list)
+            for idx in part_index:
+                if not is_numeric_dtype(type(idx)) or (is_numeric_dtype(type(idx)) and idx % 1 != 0):
+                    # hash object index to int index
+                    hashed_index = int(hashlib.sha512(idx.encode('utf-8')).hexdigest()[:16], 16)
+                    hashed_index = abs(hash(hashed_index)) % (10**8)
+                    output_index[hashed_index%num_output].append(idx)
+                else:
+                    output_index[idx%num_output].append(idx)
+            for i in range(num_output):
+                if output_index[i] is None:
+                    output_index[i].append(None)
+            return output_index
+
+        def copartition_execution(index_map=None, num_output=None):
+            if is_range:
+                output_parts = np.ndarray((max(3, num_rows), num_cols), dtype=object)
+            else:
+                output_parts = np.ndarray((num_rows, num_cols), dtype=object)
+
+            for j in range(num_cols):
+                concat_data = pandas.concat([part.get() for part in parts[:, j]], axis=0)
+                if not is_range:
+                    index_map = create_index_map_numeric(concat_data.index, num_output)
+                for i in range(len(index_map)):
+                    coord = (i, j)
+                    if index_map[i] is None:
+                        data = pandas.DataFrame()
+                    else:
+                        if isinstance(index_map[i], list):
+                            index_map[i] = set(index_map[i])
+                        data = concat_data.loc[index_map[i]]
+                    output_parts[i][j] = Partition.put(data=data, coord=coord, container_type=container_type)
+            return output_parts
+
+        if is_range:
+            index_slices = kwargs.get("index_slices")
+            output_parts = copartition_execution(index_map=index_slices)
+
+        else:
+            num_output = kwargs.get("num_output")
+            output_parts = copartition_execution(num_output=num_output)
+
+        return output_parts

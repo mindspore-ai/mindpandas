@@ -2,9 +2,12 @@
 import concurrent.futures
 import warnings
 from functools import partial
+from collections import defaultdict
+import hashlib
 
 import numpy as np
 import pandas
+from pandas.api.types import is_numeric_dtype
 
 from .ds_partition import DSPartition as Partition
 from .eager_backend import get_scheduler
@@ -512,6 +515,109 @@ class MultiprocessOperator(SinglethreadOperator):
             set_index_1d()
         else:
             set_index_2d()
+
+
+    @classmethod
+    def copartition(cls, parts, is_range, **kwargs):
+        parts = cls.apply_func_queue(parts)
+        num_rows, num_cols = parts.shape
+        def copartition_execution(index_map=None, func_id=None):
+            mid_parts = np.ndarray((num_rows, num_rows), dtype=object)
+            if is_range:
+                mid_parts = np.ndarray((max(3, num_rows), num_cols), dtype=object)
+
+            input_futures = {part.data_id: part for row_parts in parts for part in row_parts}
+            slice_tasks = {}
+            pending_ids_mask = np.zeros(parts.shape)
+            pending_ids = list(input_futures.keys())
+            while pending_ids:
+                ready_ids, pending_ids = get_scheduler().wait(pending_ids)
+                for fid in ready_ids:
+                    if fid in input_futures:
+                        coord = input_futures[fid].coord
+                        pending_ids_mask[coord] = 1
+                        if is_range:
+                            idx = coord[1]
+                            axis = 0
+                        else:
+                            idx = coord[0]
+                            axis = 1
+                        # start concat as soon as whole column of partitions are ready
+                        if not is_range and pending_ids_mask[idx, :].all():
+                            axis_id_list = [part.data_id for part in parts[idx, :]]
+                            future_list_id, meta_data_list_id = get_scheduler().remote(rf()._remote_concat_copartition,
+                                                                                       axis_id_list,
+                                                                                       axis,
+                                                                                       None,
+                                                                                       func_id)
+                            slice_tasks[future_list_id] = (idx, meta_data_list_id)
+                        # start concat as soon as whole row of partitions are ready
+                        if is_range and pending_ids_mask[:, idx].all():
+                            axis_id_list = [part.data_id for part in parts[:, idx]]
+                            future_list_id, meta_data_list_id = get_scheduler().remote(rf()._remote_concat_copartition,
+                                                                                       axis_id_list,
+                                                                                       axis,
+                                                                                       index_map)
+                            slice_tasks[future_list_id] = (idx, meta_data_list_id)
+            pending_ids = list(slice_tasks.keys())
+            while pending_ids:
+                ready_ids, pending_ids = get_scheduler().wait(pending_ids)
+                for fid in ready_ids:
+                    idx, meta_data_list_id = slice_tasks[fid]
+                    future_list = get_scheduler().get(fid)[0]
+                    meta_data_list = get_scheduler().get(meta_data_list_id)[0]
+                    for row, (future_id, meta_data_id) in enumerate(zip(future_list, meta_data_list)):
+                        output_part = Partition.put(data_id=future_id, meta_id=meta_data_id, coord=(row, idx))
+                        mid_parts[output_part.coord] = output_part
+
+            return mid_parts
+
+        def copartition_concat(mid_parts):
+            output_partitions = np.ndarray((mid_parts.shape[0], 1), dtype=object)
+            input_futures = {part.data_id: part for row_parts in mid_parts for part in row_parts}
+            pending_ids_mask = np.zeros(mid_parts.shape)
+            pending_ids = list(input_futures.keys())
+            while pending_ids:
+                ready_ids, pending_ids = get_scheduler().wait(pending_ids)
+                for fid in ready_ids:
+                    if fid in input_futures:
+                        coord = input_futures[fid].coord
+                        pending_ids_mask[coord] = 1
+                        idx = coord[0]
+                        if pending_ids_mask[idx, :].all():
+                            axis_id_list = [part.data_id for part in mid_parts[idx, :]]
+                            future_id, meta_data_id = get_scheduler().remote(rf()._remote_concat_axis, axis_id_list, 0)
+                            output_part = Partition.put(data_id=future_id, meta_id=meta_data_id, coord=(idx, 0))
+                            output_partitions[output_part.coord] = output_part
+            return output_partitions
+
+        if not is_range:
+            num_output = kwargs.get("num_output")
+            def create_index_map_numeric(part_index):
+                output_index = defaultdict(list)
+                for idx in part_index:
+                    if not is_numeric_dtype(type(idx)) or (is_numeric_dtype(type(idx)) and idx % 1 != 0):
+                        # hash object index to int index
+                        hashed_index = int(hashlib.sha512(idx.encode('utf-8')).hexdigest()[:16], 16)
+                        hashed_index = abs(hash(hashed_index)) % (10**8)
+                        output_index[hashed_index%num_output].append(idx)
+                    else:
+                        output_index[idx%num_output].append(idx)
+                for i in range(num_output):
+                    if output_index[i] is None:
+                        output_index[i].append(None)
+                return output_index
+            func_id = get_scheduler().put(create_index_map_numeric)
+            output_parts = copartition_execution(func_id=func_id)
+            output_parts = copartition_concat(output_parts)
+
+        else:
+            index_slices = kwargs.get("index_slices")
+            output_parts = copartition_execution(index_map=index_slices)
+
+        return output_parts
+
+
 
     @classmethod
     def squeeze(cls, partitions, axis=None):

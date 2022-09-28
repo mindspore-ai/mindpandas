@@ -333,6 +333,19 @@ def test_dataframe_comp_ops():
         other_df = create_df_random_index(df)
         return df.le(other_df)
 
+
+    def test_df_diff_index_str(df):
+        other_df = TESTUTIL.create_df_index_str_list_2(df, len(df.index)//2)
+        return df.ge(other_df)
+
+    def test_df_diff_index_int(df):
+        other_df = TESTUTIL.create_df_index_integer_list_2(df, len(df.index)//2)
+        return df.ge(other_df)
+
+    def test_df_diff_index_range(df):
+        other_df = TESTUTIL.create_df_index_range_2(df, len(df.index)//2)
+        return df.ge(other_df)
+
     # def test_err_msg_shape(df, opt):
     #     other_df = create_df1_diff_shape_2(df)
     #     result = pd.eval("df opt other_df")
@@ -396,6 +409,12 @@ def test_dataframe_comp_ops():
     TESTUTIL.compare(test_df_eq_list, create_fn=create_df1_diff_col_name_1)
     TESTUTIL.compare(test_df_eq_level, create_fn=create_big_df_multindex_multilevel)
     TESTUTIL.compare(test_df_le_issue, create_fn=create_df_random)
+
+    # test copartition for two dataframes with different index
+    TESTUTIL.compare(test_df_diff_index_str, create_fn=TESTUTIL.create_df_index_str_list)
+    TESTUTIL.compare(test_df_diff_index_int, create_fn=TESTUTIL.create_df_index_integer_list)
+    TESTUTIL.compare(test_df_diff_index_range, create_fn=TESTUTIL.create_df_index_range)
+
 
     # for opt in ["<", "<=", ">", ">=", "==", "!="]:
     #     TESTUTIL.run_compare_error_special(
