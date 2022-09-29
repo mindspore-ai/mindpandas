@@ -25,7 +25,6 @@ init_vars() {
         command python3
     fi
 
-    BUILD_CI="False"
     PROJECT_BASEDIR=$(realpath "$(dirname "$0")")
     VERSION="$("$PYTHON" -c 'import platform; print(platform.python_version())')"
     PYTHON_VERSION_NUM=$(echo "$VERSION" | awk -F'.' '{print $1$2}')
@@ -57,7 +56,7 @@ solve_dependency() {
     echo "Solving Dependency"
     if [[ "${BUILD_CI}" = "True" ]]; then
         # Download for ci
-        exit
+        echo "build on CI"
     else
         # Download for user
         solved=0
@@ -104,7 +103,6 @@ build_wheel() {
     fi
 
     echo "start building mindpandas"
-    clean_files
 
     if ! "$PYTHON" -c 'import sys; assert sys.version_info.major == 3 and sys.version_info.minor in {7, 8, 9}' > /dev/null; then
         echo "Python 3.7, 3.8 or 3.9 is required. You are running $("$PYTHON" -V)"
