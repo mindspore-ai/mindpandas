@@ -32,6 +32,7 @@ def set_concurrency_mode(mode, **kwargs):
             distributed multiprocess backend.
         **kwargs: When running on multithread mode, no additional kwargs needed. When running on multiprocess mode,
             additional parameters include:
+
             * address: The ip address of the master node, required.
 
     Raises:
