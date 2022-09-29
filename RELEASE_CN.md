@@ -1,6 +1,6 @@
 # MindPandas Release Notes
 
-## MindPandas 0.1.0-alpha Release Notes
+## MindPandas 0.1.0 Release Notes
 
 MindPandas使用分布式计算引擎加速运算，兼容现有Pandas代码。 MindPandas可以使用您计算机上所有的CPU内核，这使得MindPandas在大数据集上工作效果更好。
 
@@ -8,7 +8,7 @@ MindPandas使用分布式计算引擎加速运算，兼容现有Pandas代码。 
 
 #### MindPandas
 
-- MindPandas支持100多个Pandas API，具有两种后端并发模式来并行计算。
+- [STABLE] MindPandas支持100多个Pandas API，具有两种后端并发模式来并行计算。
 
 ### 贡献者
 
