@@ -22,7 +22,6 @@ import pandas
 import mindpandas as mpd
 from mindpandas.dataframe import (DataFrame, hashable, is_list_like,
                                   no_default)
-from mindpandas.series import Series
 
 
 class DataFrameGroupBy:
@@ -46,6 +45,7 @@ class DataFrameGroupBy:
                  drop=False,
                  is_mapping=False,
                  default_to_pandas=False,
+                 get_item_key=None,
                  **kwargs
                  ):
         super(DataFrameGroupBy, self).__init__()
@@ -65,6 +65,7 @@ class DataFrameGroupBy:
         self.default_to_pandas = default_to_pandas
         self._is_series = isinstance(self, SeriesGroupBy)
         self.is_mapping = is_mapping
+        self.get_item_key = get_item_key
 
         self.kwargs = {
             "level": level,
@@ -241,12 +242,6 @@ class DataFrameGroupBy:
         def _is_dataframe(key):
             as_index = kwargs.get("as_index")
 
-            index = self.by_dataframe.to_pandas()
-            if isinstance(index, pandas.DataFrame):
-                index = pandas.MultiIndex.from_frame(index)
-            else:
-                index = pandas.Index(index)
-
             if is_list_like(key):
                 is_dataframe = True
             else:
@@ -254,28 +249,22 @@ class DataFrameGroupBy:
                 if not as_index:
                     is_dataframe = True
                     key = [key]
-            return is_dataframe, key, index
+            return is_dataframe, key
 
-        is_dataframe, key, index = _is_dataframe(key)
-
-        if not is_dataframe:
-            new_dataframe = Series(self.backend_frame.get_columns(key))
-            new_dataframe.index = index
-
-            return SeriesGroupBy(
-                new_dataframe,
-                drop=False,
-                **kwargs,
-            )
+        is_dataframe, key = _is_dataframe(key)
 
         # NOTE: currently support single or multi column in the DataFrameGroupBy results
         if any([isinstance(key, list),
                 isinstance(key, tuple),
                 isinstance(key, pandas.Series),
-                isinstance(key, mpd.Series)]):
+                isinstance(key, mpd.Series)]) or not is_dataframe:
+
+            get_item_key = key
             if isinstance(key, tuple):
                 key = list(key)
 
+            if not is_dataframe:
+                key = [key]
             # NOTE: kwargs["by_names"] set the indexes for dataframe,
             if isinstance(self.by, list) and all(hashable(b) for b in self.by):   # list of labels
                 if isinstance(key, pandas.Series):
@@ -293,22 +282,21 @@ class DataFrameGroupBy:
                 pass
 
             new_dataframe = DataFrame(self.backend_frame.get_columns(key))
-            new_dataframe.index = index
 
-            return DataFrameGroupBy(
+            if is_dataframe:
+                groupby_obj = DataFrameGroupBy
+                drop = self.drop
+            else:
+                groupby_obj = SeriesGroupBy
+                drop = False
+
+            return groupby_obj(
                 new_dataframe,
-                drop=self.drop,
+                drop=drop,
+                get_item_key=get_item_key,
                 **kwargs,
             )
-        if hashable(key):
-            new_dataframe = Series(self.backend_frame.get_columns(key))
-            new_dataframe.index = index
 
-            return SeriesGroupBy(
-                new_dataframe,
-                drop=False,
-                **kwargs,
-            )
         if any([isinstance(key, pandas.DataFrame),
                 isinstance(key, mpd.DataFrame),
                 isinstance(key, dict)]):
@@ -317,6 +305,18 @@ class DataFrameGroupBy:
 
         raise NotImplementedError(
             f"Current DataFrame groupby doesn't support {type(key)} type keys.")
+
+    def apply(self, func, **kwargs):
+        """ Apply func group-wise and combine the results together.
+
+            Note: This function is only used for demo purposes.
+
+            TODO: This function requires parallel optimization
+        """
+        kwargs["func"] = func
+        output_dataframe = self._qc.groupby_default_to_pandas(
+            self, "apply", force_series=self._is_series, **kwargs)
+        return output_dataframe
 
     def func_wrapper(self, groupby_method_name, **kwargs):
         if isinstance(self.by, pandas.Grouper):
@@ -613,6 +613,7 @@ class SeriesGroupBy(DataFrameGroupBy):
                  drop=False,
                  is_mapping=False,
                  default_to_pandas=False,
+                 get_item_key=None,
                  **kwargs
                  ):
         if not as_index:
@@ -624,6 +625,7 @@ class SeriesGroupBy(DataFrameGroupBy):
                                             drop=as_index,
                                             is_mapping=is_mapping,
                                             default_to_pandas=default_to_pandas,
+                                            get_item_key=get_item_key,
                                             **kwargs)
 
     @property
