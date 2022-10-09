@@ -1,15 +1,9 @@
 mindpandas.get_adaptive_concurrency
-======================
+===================================
 
-.. py:function:: mindpandas.get_adaptive_concurrency(**kwargs)
+.. py:function:: mindpandas.get_adaptive_concurrency()
 
-    设置后端运行模式。
+    获取是否使用自适应并发的标记位。
 
-    .. note::
-        - 可以设置mode为multithread或yr两种后端模式，默认值为multithread。multithread模式为多线程后端，yr模式为多进程后端。
-
-    参数：
-        - **mode** (str) - 设置后端运行模式。
-
-    异常：
-        - **ValueError** - 该模式不支持。
+    返回：
+        bool，自适应并发标记位的值。
