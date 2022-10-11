@@ -23,8 +23,8 @@ __all__ = ['set_concurrency_mode', 'get_concurrency_mode', 'set_partition_shape'
 def set_concurrency_mode(mode, **kwargs):
     """
     Set the backend concurrency mode to parallelize the computation. Default mode is multithread. Available options
-    are {'multithread', 'multiprocess'}. When running on multiprocess mode, you must deploy a
-    cluster first, please referring to `MindPandas execution mode introduction and configuration instructions
+    are {'multithread', 'multiprocess'}. For the instruction and usage of two modes, please refer to
+    `MindPandas execution mode introduction and configuration instructions
     <https://www.mindspore.cn/mindpandas/docs/zh-CN/master/mindpandas_configuration.html>`_ for more information.
 
     Args:
@@ -94,7 +94,7 @@ def set_partition_shape(shape):
     """
     Users can set the partition shape of the data, where shape[0] is the expected number of partitions along axis 0 (
     row-wise) and shape[1] is the expected number of partitions along axis 1 (column-wise). e.g. If the shape is (16,
-    16), then pandas will try to slice original data into 16 * 16 partitions.
+    16), then mindpandas will try to slice original data into 16 * 16 partitions.
 
     Args:
         shape(tuple): Number of expected partitions along each axis. It should be a tuple of two positive integers.
@@ -182,8 +182,9 @@ def set_adaptive_concurrency(adaptive):
     """
     Users can set adaptive concurrency to allow read_csv to automatically select the concurrency mode based on the
     file size. Available options are "True" or "False". When set to True, file sizes read from read_csv greater
-    than 18 MB and DataFrames initialized from pandas DataFrames using more than 1 GB CPU memory will use the
-    multiprocess mode, otherwise they will use the multithread mode.
+    than 18 MB and DataFrame initialized from pandas DataFrame using more than 1 GB CPU memory will use the
+    multiprocess mode, otherwise they will use the multithread mode. When set to False, it will use the current
+    concurrency mode.
 
     Args:
         adaptive(bool): True to turn on adaptive concurrency, False to turn off adaptive concurrency.
