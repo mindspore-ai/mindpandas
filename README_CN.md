@@ -86,7 +86,7 @@ python -c "import mindpandas"
 import mindpandas as pd
 ```
 
-通过如下命令设置MindPandas的运行模式，这样可以加快您的pandas工作流程。
+通过如下命令设置MindPandas的运行模式，这样可以加快您的MindPandas工作流程。
 
 ```python
 pd.set_concurrency_mode('multithread')
@@ -113,7 +113,7 @@ Name: sum, dtype: int64
 
 ## 贡献
 
-欢迎参与贡献。更多详情，请参阅我们的[贡献者Wiki](https://gitee.com/mindspore/mindspore/blob/master/CONTRIBUTING.md)。
+欢迎参与贡献。更多详情，请参阅我们的[贡献者Wiki](https://gitee.com/mindspore/mindspore/blob/master/CONTRIBUTING_CN.md)。
 
 ## 版本说明
 
