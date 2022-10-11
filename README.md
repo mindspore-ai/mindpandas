@@ -8,8 +8,9 @@
     - [Overview](#overview)
     - [Architecture](#architecture)
 - [Installation Methods](#installation-methods)
-    - [Pip mode method installation](#pip-mode-method-installation)
-    - [Installation by Source Code](#installation-by-source-code)
+    - [Confirming System Environment Information](#confirming-system-environment-information)
+    - [Installing from pip command](#installing-from-pip-command)
+    - [Installing from source code](#installing-from-source-code)
 - [Quickstart](#quickstart)
 - [Docs](#docs)
 - [Contributing](#contributing)
@@ -30,30 +31,48 @@ MindPandas is implemented based on distribution, while native pandas is implemen
 
 However, MindPandas can use more threads and cores on the machine, or all cores of the entire cluster.
 
+For detailed architecture design, please refer to [official website document](https://www.mindspore.cn/mindpandas/docs/en/master/index.html).
+
 ## Installation Methods
 
-### Pip mode method installation
+### Confirming System Environment Information
 
-Install pandas via PyPI：
+The following table lists the environment required for installing, compiling and running MindPandas:
 
-```python
-pip install mindpandas
-```
+| software |  version   |
+| :------: | :-----: |
+|  Linux-x86_64 |  Ubuntu \>=18.04<br/>Euler \>=2.9 |
+|  Python  | 3.8 |
+|  glibc  |  \>=2.25   |
 
-### Installation by Source Code
+- Make sure libxml2-utils is installed in your environment.
+- Please refer to [requirements](https://gitee.com/mindspore/mindpandas/blob/master/requirements.txt) for other third party dependencies.
 
-Download [source code](https://gitee.com/mindspore/mindpandas.git).Build the whl package for installation, Enter the root directory of the source code, and execute the MindPandas compilation script in the build directory, then execute the command to install the whl package generated in the output directory.
+### Installing from pip command
+
+If you use the pip, please download the whl package from [MindPandas](https://www.mindspore.cn/versions/en) page and install it.
+
+> Installing whl package will download MindPandas dependencies automatically (detail of dependencies is shown in requirements.txt) in the networked state, and other dependencies should be installed manually.
+
+### Installing from source code
+
+Download [source code](https://gitee.com/mindspore/mindpandas), then enter the `mindpandas` directory to run build.sh script.
 
 ```shell
 git clone https://gitee.com/mindspore/mindpandas.git
 cd mindpandas
 bash build.sh
+```
+
+The package is in output directory after compiled and you can install with pip.
+
+```shell
 pip install output/mindpandas-0.1.0-cp38-cp38-linux_x86_64.whl
 ```
 
-### Installation Verification
+## Verification
 
-Execute the following command on the Python interactive command line successfully, that is, the installation is successful.
+Execute the following command in shell. If no `No module named 'mindpandas'` error is reported, the installation is successful.
 
 ```shell
 python -c "import mindpandas"
@@ -61,14 +80,13 @@ python -c "import mindpandas"
 
 ## Quickstart
 
-First install the dependent libraries and packages: pandas, numpy.
-Then import MindPandas with the following command.
+First import MindPandas with the following command.
 
 ```python
 import mindpandas as pd
 ```
 
-Set the running mode of MindPandas with the following command, which can speed up your pandas workflow.
+Set the running mode of MindPandas with the following command, which can speed up your MindPandas workflow.
 
 ```python
 pd.set_concurrency_mode('multithread')
@@ -92,11 +110,11 @@ Name: sum, dtype: int64
 ## Docs
 
 More details about installation guide, tutorials and APIs, please see the
-[User Documentation]().
+[User Documentation](https://www.mindspore.cn/mindpandas/docs/en/master/mindpandas_install.html).
 
 ## Contributing
 
-Welcome contributions. See our [Contributor Wiki](https://gitee.com/mindspore/mindpandas/blob/master/CONTRIBUTING.md) for
+Welcome contributions. See our [Contributor Wiki](https://gitee.com/mindspore/mindspore/blob/master/CONTRIBUTING.md) for
 more details.
 
 ## Release Notes
