@@ -440,7 +440,7 @@ class EagerFrame(BaseFrame):
         row_lengths = [part.num_rows for part in self.partitions[:, 0]]
         return row_lengths
 
-    def get_dict_of_partition_index(self, axis, indices, are_indices_sorted=False):
+    def get_dict_of_partition_index(self, axis, global_indices, are_indices_sorted=False):
         """
         Get a dictionary of the partitions specified by global indices along axis.
 
@@ -448,121 +448,105 @@ class EagerFrame(BaseFrame):
         axis (int, {0 or 1}): get indices along the rows or columns (0 - rows, 1 - columns)
         indices (list-like): the global indices to convert
         """
-        # NOTE: reference of Modin source code
         # TODO: Support handling of slices with specified 'step'. For now, converting them into a range
-        if isinstance(indices, slice) and (
-                indices.step is not None and indices.step != 1
-        ):
-            indices = range(*indices.indices(len(self.axes[axis])))
-        # Fasttrack slices
-        if isinstance(indices, slice) or (is_range_like(indices) and indices.step == 1):
-            def fast_slices(indices):
+        if isinstance(global_indices, slice) and (global_indices.step is not None and global_indices.step != 1):
+            global_indices = range(*global_indices.indices(len(self.axes[axis])))
+
+        if isinstance(global_indices, slice) or (is_range_like(global_indices) and global_indices.step == 1):
+            def fast_slices(global_indices):
                 # Converting range-like indexer to slice
-                indices = slice(indices.start, indices.stop, indices.step)
-                if is_full_grab_slice(indices, sequence_len=len(self.axes[axis])):
-                    return OrderedDict(
-                        zip(
-                            range(self.partitions.shape[axis]),
-                            [slice(None)] * self.partitions.shape[axis],
-                        )
-                    )
+                global_indices = slice(global_indices.start, global_indices.stop, global_indices.step)
+                if is_full_grab_slice(global_indices, sequence_len=len(self.axes[axis])):
+                    return OrderedDict(zip(range(self.partitions.shape[axis]),
+                                           [slice(None)] * self.partitions.shape[axis],))
                 # Empty selection case
-                if indices.start == indices.stop and indices.start is not None:
+                if global_indices.start == global_indices.stop and global_indices.start is not None:
                     return OrderedDict()
-                if indices.start is None or indices.start == 0:
-                    last_part, last_idx = list(
-                        self.get_dict_of_partition_index(axis, [indices.stop]).items()
-                    )[0]
-                    dict_of_slices = OrderedDict(
-                        zip(range(last_part), [slice(None)] * last_part)
-                    )
-                    dict_of_slices.update({last_part: slice(last_idx[0])})
+                if global_indices.start is None or global_indices.start == 0:
+                    last_partition, last_index = list(
+                        self.get_dict_of_partition_index(axis, [global_indices.stop]).items()
+                        )[0]
+                    dict_of_slices = OrderedDict(zip(range(last_partition),
+                                                     [slice(None)] * last_partition))
+                    dict_of_slices.update({last_partition: slice(last_index[0])})
                     return dict_of_slices
-                if indices.stop is None or indices.stop >= len(self.axes[axis]):
-                    first_part, first_idx = list(
-                        self.get_dict_of_partition_index(axis, [indices.start]).items()
-                    )[0]
-                    dict_of_slices = OrderedDict({first_part: slice(first_idx[0], None)})
+                if global_indices.stop is None or global_indices.stop >= len(self.axes[axis]):
+                    first_partition, first_index = list(
+                        self.get_dict_of_partition_index(axis, [global_indices.start]).items()
+                        )[0]
+                    dict_of_slices = OrderedDict({first_partition: slice(first_index[0], None)})
                     num_partitions = np.size(self.partitions, axis=axis)
-                    part_list = range(first_part + 1, num_partitions)
-                    dict_of_slices.update(
-                        OrderedDict(zip(part_list, [slice(None)] * len(part_list)))
-                    )
+                    partition_list = range(first_partition + 1, num_partitions)
+                    dict_of_slices.update(OrderedDict(zip(partition_list, [slice(None)] * len(partition_list))))
                     return dict_of_slices
-                first_part, first_idx = list(
-                    self.get_dict_of_partition_index(axis, [indices.start]).items()
-                )[0]
-                last_part, last_idx = list(
-                    self.get_dict_of_partition_index(axis, [indices.stop]).items()
-                )[0]
-                if first_part == last_part:
-                    return OrderedDict({first_part: slice(first_idx[0], last_idx[0])})
-                if last_part - first_part == 1:
-                    return OrderedDict(
-                        # TODO: it might not maintain the order
-                        {
-                            first_part: slice(first_idx[0], None),
-                            last_part: slice(None, last_idx[0]),
-                        }
-                    )
-                dict_of_slices = OrderedDict(
-                    {first_part: slice(first_idx[0], None)}
-                )
-                part_list = range(first_part + 1, last_part)
+                first_partition, first_index = list(
+                    self.get_dict_of_partition_index(axis, [global_indices.start]).items()
+                    )[0]
+                last_partition, last_index = list(
+                    self.get_dict_of_partition_index(axis, [global_indices.stop]).items()
+                    )[0]
+                if first_partition == last_partition:
+                    return OrderedDict({first_partition: slice(first_index[0], last_index[0])})
+                if last_partition - first_partition == 1:
+                    return OrderedDict({first_partition: slice(first_index[0], None),
+                                        last_partition: slice(None, last_index[0]),})
+                dict_of_slices = OrderedDict({first_partition: slice(first_index[0], None)})
+                partition_list = range(first_partition + 1, last_partition)
                 dict_of_slices.update(
-                    OrderedDict(zip(part_list, [slice(None)] * len(part_list)))
+                    OrderedDict(zip(partition_list, [slice(None)] * len(partition_list)))
                 )
-                dict_of_slices.update({last_part: slice(None, last_idx[0])})
+                dict_of_slices.update({last_partition: slice(None, last_index[0])})
                 return dict_of_slices
-            return fast_slices(indices)
-        if isinstance(indices, list):
+            return fast_slices(global_indices)
+        if isinstance(global_indices, list):
             # Converting python list to numpy for faster processing
-            indices = np.array(indices, dtype=np.int64)
-        negative_mask = np.less(indices, 0)
+            global_indices = np.array(global_indices, dtype=np.int64)
+        negative_mask = np.less(global_indices, 0)
         has_negative = np.any(negative_mask)
         if has_negative:
-            # We're going to modify 'indices' inplace in a numpy way, so doing a copy/converting indices to numpy.
-            indices = (
-                indices.copy()
-                if isinstance(indices, np.ndarray)
-                else np.array(indices, dtype=np.int64)
+            global_indices = (
+                global_indices.copy()
+                if isinstance(global_indices, np.ndarray)
+                else np.array(global_indices, dtype=np.int64)
             )
-            indices[negative_mask] = indices[negative_mask] % len(self.axes[axis])
-        # If the `indices` array was modified because of the negative indices conversion
-        # then the original order was broken and so we have to sort anyway:
+            global_indices[negative_mask] = global_indices[negative_mask] % len(self.axes[axis])
+
         if has_negative or not are_indices_sorted:
-            indices = np.sort(indices)
+            global_indices = np.sort(global_indices)
         if axis == 0:
             bins = np.array(self.get_row_lengths_of_partitions())
         else:
             bins = np.array(self.get_column_widths_of_partitions())
-        cumulative = np.append(bins[:-1].cumsum(), np.iinfo(bins.dtype).max)
-        partition_ids = np.digitize(indices, cumulative)
-        count_for_each_partition = np.array([(partition_ids == i).sum() for i in range(len(cumulative))]).cumsum()
+        cumulative_len = np.append(bins[:-1].cumsum(), np.iinfo(bins.dtype).max)
+        partition_ids = np.digitize(global_indices, cumulative_len)
+        each_partition_count = np.array([(partition_ids == i).sum() for i in range(len(cumulative_len))]).cumsum()
 
-        def internal(block_idx, global_index):
+        def transform_global_index_to_internal(block_index, global_index):
             """Transform global index to internal one for given block (identified by its index)."""
             return (
                 global_index
-                if not block_idx
+                if not block_index
                 else np.subtract(
-                    global_index, cumulative[min(block_idx, len(cumulative) - 1) - 1]
+                    global_index, cumulative_len[min(block_index, len(cumulative_len) - 1) - 1]
                 )
             )
 
-        if count_for_each_partition[0] > 0:
+        if each_partition_count[0] > 0:
             first_partition_indices = [
-                (0, internal(0, indices[slice(count_for_each_partition[0])]))
+                (0, transform_global_index_to_internal(0, global_indices[slice(each_partition_count[0])]))
             ]
         else:
             first_partition_indices = []
         partition_ids_with_indices = first_partition_indices + [
             (
-                i, internal(i, indices[slice(count_for_each_partition[i - 1],
-                                             count_for_each_partition[i])])
+                i,
+                transform_global_index_to_internal(
+                    i,
+                    global_indices[slice(each_partition_count[i - 1], each_partition_count[i])]
+                    )
             )
-            for i in range(1, len(count_for_each_partition))
-            if count_for_each_partition[i] > count_for_each_partition[i - 1]
+            for i in range(1, len(each_partition_count))
+            if each_partition_count[i] > each_partition_count[i - 1]
         ]
 
         return OrderedDict(partition_ids_with_indices)
@@ -1021,11 +1005,11 @@ class EagerFrame(BaseFrame):
                 part.container_type = new_type
 
     @staticmethod
-    def _join_index(axis, indexes, how, sort):
+    def _join_index(axis, indices, how, sort):
         """
         Join two indices
         """
-        assert isinstance(indexes, list)
+        assert isinstance(indices, list)
 
         # Define a helper function to combine two indices
         def combine_index(left_index, right_index):
@@ -1033,41 +1017,41 @@ class EagerFrame(BaseFrame):
                 return left_index.union(right_index, sort=False)
             return left_index.join(right_index, how=how, sort=sort)
 
-        is_equal = all(indexes[0].equals(index) for index in indexes[1:])
+        is_equal = all(indices[0].equals(index) for index in indices[1:])
         need_join = how is not None and not is_equal
-        # Check if indexers are needed
-        need_indexers = (
+
+        check_need_indexers = (
             axis == 0
             and not is_equal
-            and any(not index.is_unique for index in indexes)
+            and any(not index.is_unique for index in indices)
         )
-        indexers = None
+        used_indexers = None
 
         if need_join:
-            if len(indexes) == 2 and need_indexers:
-                indexers = [None, None]
-                joined_index, indexers[0], indexers[1] = indexes[0].join(
-                    indexes[1], how=how, sort=sort, return_indexers=True
+            if len(indices) == 2 and check_need_indexers:
+                used_indexers = [None, None]
+                joined_index, used_indexers[0], used_indexers[1] = indices[0].join(
+                    indices[1], how=how, sort=sort, return_indexers=True
                 )
             else:
-                joined_index = indexes[0]
-                for index in indexes[1:]:
+                joined_index = indices[0]
+                for index in indices[1:]:
                     joined_index = combine_index(joined_index, index)
         else:
-            joined_index = indexes[0].copy()
+            joined_index = indices[0].copy()
 
-        if need_indexers and indexers is None:
-            indexers = [index.get_indexer_for(joined_index) for index in indexes]
+        if check_need_indexers and used_indexers is None:
+            used_indexers = [index.get_indexer_for(joined_index) for index in indices]
         # Create a helper function to reindex df
         def create_reindexer(need_reindex, frame_id):
             if not need_reindex:
                 return lambda df: df
 
-            if need_indexers:
-                assert indexers is not None
+            if check_need_indexers:
+                assert used_indexers is not None
 
                 return lambda df: df._reindex_with_indexers(
-                    {0: [joined_index, indexers[frame_id]]},
+                    {0: [joined_index, used_indexers[frame_id]]},
                     copy=True,
                     allow_dups=True,
                 )
