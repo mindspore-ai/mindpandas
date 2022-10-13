@@ -24,7 +24,7 @@ import pandas
 from pandas._libs.lib import is_list_like
 
 import mindpandas as mpd
-import mindpandas.iternal_config as config
+import mindpandas.iternal_config as i_config
 from mindpandas.backend.base_frame import BaseFrame
 from mindpandas.backend.eager.multiprocess_operators import MultiprocessOperator as mp_ops
 from mindpandas.backend.eager.multithread_operators import MultithreadOperator as mt_ops
@@ -46,26 +46,26 @@ class EagerFrame(BaseFrame):
         ----------
         partitions: numpy 2D array
         """
-        if config.get_adaptive_concurrency() and partitions is not None:
+        if i_config.get_adaptive_concurrency() and partitions is not None:
             if isinstance(partitions[0][0], DSPartition):
                 self.ops = mp_ops
                 self.default_partition = DSPartition
-                self.default_partition_shape = config.get_adaptive_partition_shape(config.get_multiprocess_backend())
+                self.default_partition_shape = mpd.config.get_adaptive_partition_shape('multiprocess')
             else:
                 self.ops = mt_ops
                 self.default_partition = MultithreadPartition
-                self.default_partition_shape = config.get_adaptive_partition_shape('multithread')
+                self.default_partition_shape = mpd.config.get_adaptive_partition_shape('multithread')
         else:
-            if config.get_concurrency_mode() == "yr":
+            if i_config.get_concurrency_mode() == "yr":
                 self.ops = mp_ops
                 self.default_partition = DSPartition
-            elif config.get_concurrency_mode() == "multithread":
+            elif i_config.get_concurrency_mode() == "multithread":
                 self.ops = mt_ops
                 self.default_partition = MultithreadPartition
             else:
                 self.ops = st_ops
                 self.default_partition = MultithreadPartition
-            self.default_partition_shape = config.get_partition_shape()
+            self.default_partition_shape = i_config.get_partition_shape()
 
         # create an empty frame
         if partitions is None:
@@ -388,7 +388,7 @@ class EagerFrame(BaseFrame):
                     part.coord = (part.coord[1], part.coord[0])
         return EagerFrame(reduced_partitions)
 
-    def repartition(self, output_shape, mblock_size=config.get_min_block_size()):
+    def repartition(self, output_shape, mblock_size=i_config.get_min_block_size()):
         '''Repartition the frame according to output_shape.'''
         output_partitions = self.ops.repartition(self.partitions, output_shape, mblock_size)
         return EagerFrame(output_partitions)
@@ -523,13 +523,9 @@ class EagerFrame(BaseFrame):
 
         def transform_global_index_to_internal(block_index, global_index):
             """Transform global index to internal one for given block (identified by its index)."""
-            return (
-                global_index
-                if not block_index
-                else np.subtract(
-                    global_index, cumulative_len[min(block_index, len(cumulative_len) - 1) - 1]
-                )
-            )
+            if not block_index:
+                return global_index
+            return np.subtract(global_index, cumulative_len[min(block_index, len(cumulative_len) - 1) - 1])
 
         if each_partition_count[0] > 0:
             first_partition_indices = [
@@ -676,14 +672,14 @@ class EagerFrame(BaseFrame):
             output_cols = math.ceil(df_shapes[0][1] / other_part_col_size)
 
             output_shape = (self.partitions.shape[0], output_cols)
-            self.partitions = self.ops.repartition(self.partitions, output_shape, config.get_min_block_size())
+            self.partitions = self.ops.repartition(self.partitions, output_shape, i_config.get_min_block_size())
         elif df_shapes[0][1] < df_shapes[1][1]:
             this_part_col_size = self.partitions[0][0].get().shape[1]
             output_cols = math.ceil(df_shapes[1][1] / this_part_col_size)
 
             output_shape = (other_dataframe.partitions.shape[0], output_cols)
             other_dataframe.partitions = self.ops.repartition(other_dataframe.partitions, output_shape,
-                                                              config.get_min_block_size())
+                                                              i_config.get_min_block_size())
 
         output_partitions = self.ops.combine_reduce(self.partitions, other_dataframe.partitions, orig_df_cols,
                                                     orig_other_cols, fold_func)
@@ -946,7 +942,9 @@ class EagerFrame(BaseFrame):
         '''Perform update operation on EagerFrame.'''
         partition = self.default_partition.put(data=new_dataframe, coord=(0, 0), container_type=type(new_dataframe))
         partition_array = np.array([[partition]])  # single partition
-        new_partitions = self.ops.repartition(partition_array, self.partitions.shape, config.get_min_block_size())
+        new_partitions = self.ops.repartition(partition_array,
+                                              self.partitions.shape,
+                                              i_config.get_min_block_size())
         if self.partitions.shape != new_partitions.shape:
             raise ValueError("Cannot update backend partitions with different shape")
         self.ops.update(self.partitions, new_partitions)
@@ -960,8 +958,7 @@ class EagerFrame(BaseFrame):
             if (
                     self.partitions is not None and
                     not self.partitions.size and
-                    isinstance(self.partitions[0][0], DSPartition) and
-                    config.get_multiprocess_backend() == "yr"
+                    isinstance(self.partitions[0][0], DSPartition)
             ):
                 self.ops.flush(self.partitions)
             output_partitions = copy_module.deepcopy(self.partitions)
@@ -1105,8 +1102,8 @@ class EagerFrame(BaseFrame):
                 base_frame.partitions,
             )
             reindexed_base_partitions = self.ops.repartition(reindexed_base_partitions,
-                                                             config.get_partition_shape(),
-                                                             config.get_min_block_size())
+                                                             i_config.get_partition_shape(),
+                                                             i_config.get_min_block_size())
         else:
             reindexed_base_partitions = base_frame.partitions
 
@@ -1124,30 +1121,30 @@ class EagerFrame(BaseFrame):
                 or need_reindex_others[i]
                 or others_lengths[i] != base_lengths
             )
-        reindexed_other_list = [None] * len(other_frames)
+        new_list_other = [None] * len(other_frames)
         # If we need to repartition other frames, apply reindex function to axis partitions in other frames first
         # and then repartition other frames
         for i in range(len(other_frames)):
-            if do_repartition_others[i]:
-                reindexed_other_list[i] = other_frames[
+            if not do_repartition_others[i]:
+                new_list_other[i] = other_frames[i].partitions
+            else:
+                new_list_other[i] = other_frames[
                     i
                 ].ops.map_axis_partitions(
                     axis,
-                    create_reindexer(do_repartition_others[i], base_frame_id + 1 + i),
+                    create_reindexer(do_repartition_others[i], base_frame_id + i + 1),
                     other_frames[i].partitions
                     )
-                reindexed_other_list[i] = self.ops.repartition(reindexed_other_list[i],
-                                                               config.get_partition_shape(),
-                                                               config.get_min_block_size())
-            else:
-                reindexed_other_list[i] = other_frames[i].partitions
+                new_list_other[i] = self.ops.repartition(new_list_other[i],
+                                                         i_config.get_partition_shape(),
+                                                         i_config.get_min_block_size())
 
-        reindexed_frames = (
+        new_frames = (
             [frames[i].partitions for i in range(base_frame_id)]
             + [reindexed_base_partitions]
-            + reindexed_other_list
+            + new_list_other
         )
-        return reindexed_frames[0], reindexed_frames[1:], joined_index
+        return new_frames[0], new_frames[1:], joined_index
 
     def injective_map_with_join(self, func, right_frame, join_type="outer"):
         """
