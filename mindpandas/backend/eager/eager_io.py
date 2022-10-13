@@ -110,15 +110,20 @@ def _validate_args(filepath, **kwargs):
     for key, val in kwargs.items():
         if key in read_csv_default_args:
             expect_val = read_csv_default_args[key]
-            if expect_val is None and val is not None:
-                return False
-            if expect_val != val:
+            if expect_val is None:
+                if val is not None:
+                    return False
+            elif val is None:
+                if expect_val is not None:
+                    return False
+            elif expect_val != val:
                 return False
     return True
 
 
 def read_csv(filepath, **kwargs):
     """Read a comma-separated values (csv) file into DataFrame."""
+
     def default_to_pandas_read_csv(filepath, **kwargs):
         df = pandas.read_csv(filepath, **kwargs)
         partition = eager_backend.get_partition().put(data=df, coord=(0, 0))
@@ -146,7 +151,6 @@ def read_csv(filepath, **kwargs):
             output_frame = fast_read_csv(filepath,
                                          header=kwargs.get('header', "infer"),
                                          file_size=file_size)
-            output_frame.set_index(None)
             output_frame = output_frame.repartition(output_shape=output_frame.default_partition_shape)
             return output_frame
         except Exception as err:
@@ -218,22 +222,12 @@ def create_backend_frame(data, index, columns, dtype, copy, container_type=panda
     return from_pandas(pandas_df)
 
 
-def read_csv_mapfn(df_meta, **kwargs):
+def read_csv_mapfn(df_meta):
     """Distributed read_csv function mapped to each partition"""
     df_meta = df_meta.iloc[0]
     f = open(df_meta.filepath, 'rb')
     f.seek(df_meta.start, 0)
     chunk = f.read(df_meta.end - df_meta.start)
-    df_first_row = kwargs.pop('df_first_row')
-    header_none = isinstance(df_first_row, pandas.DataFrame)
-    if header_none:
-        df_first_row = df_first_row.to_string()
-        list_string = df_first_row.split()
-        # get the column names and add it to each partition
-        df_first_row = ','.join(list_string[:len(list_string) // 2])
-        df_first_row = df_first_row + '\n'
-        df_first_row = df_first_row.encode()
-        chunk = df_first_row + chunk
     chunk_b = BytesIO(chunk)
     f.close()
 
@@ -247,13 +241,10 @@ def read_csv_mapfn(df_meta, **kwargs):
             df.reindex(df_meta["column_names"], axis="columns")
         if not df.dtypes.equals(df_meta["column_types"]):
             raise TypeError("Columns have mixed types")
-        if header_none:
-            # in header==None case,
-            # get rid of the first row (i.e. column names) being attached to each partition previously
-            return df.iloc[1:]
-        return df
     except Exception as e:
         return e
+
+    return df
 
 
 def find_next_newline(offset, f):
@@ -312,13 +303,6 @@ def fast_read_csv(file_path, header, file_size=None, **kwargs):
     cols = df_head.columns
     dtypes = df_head.dtypes
 
-    # for header==None, get the first row(including column names) first,
-    # and attach it to each partition to get the correct result
-    if header is None:
-        df_first_row = pandas.read_csv(file_path, nrows=1)
-    else:
-        df_first_row = None
-
     df_meta = pandas.DataFrame(None, columns=["start", "end", "column_names", "column_types", "filepath", "header"])
     for i in range(len(split_points) - 1):
         local_header = None if (i > 0) else header
@@ -328,12 +312,16 @@ def fast_read_csv(file_path, header, file_size=None, **kwargs):
     meta_frame = EagerFrame(np.array([[meta_partition]]))  # single partition
     meta_frame = meta_frame.repartition(output_shape=(len(df_meta), 1), mblock_size=1)
 
-    kwargs["df_first_row"] = df_first_row
-    frame = meta_frame.map(read_csv_mapfn, repartition=True, **kwargs)
+    frame = meta_frame.map(read_csv_mapfn, **kwargs)
 
     for row_part in frame.partitions:
         if not row_part[0].valid:
             raise row_part[0].get().squeeze()
+
+    if isinstance(df_head.index, pandas.RangeIndex):
+        # If no explicit index is provided, each partition will automatically generate a RangeIndex starting from 0,
+        # so we need to regenerate an index for all partitions.
+        frame.set_index(None)
 
     return frame
 
