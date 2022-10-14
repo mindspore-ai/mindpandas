@@ -1,6 +1,3 @@
-mindpandas.get_adaptive_concurrency
-===================================
-
 .. py:function:: mindpandas.get_adaptive_concurrency()
 
     获取是否使用自适应并发的标记位。

@@ -19,5 +19,5 @@ MindPandas配置文件
 
 .. include:: mindpandas/mindpandas.get_min_block_size.rst
 
-.. automodule:: mindpandas
+.. automodule:: mindpandas.config
     :members:
