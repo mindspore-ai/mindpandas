@@ -28,7 +28,7 @@ init_vars() {
     PROJECT_BASEDIR=$(realpath "$(dirname "$0")")
     VERSION="$("$PYTHON" -c 'import platform; print(platform.python_version())')"
     PYTHON_VERSION_NUM=$(echo "$VERSION" | awk -F'.' '{print $1$2}')
-    DIST_EXECUTOR_MD5="b11555fa7021a12f839b53909ab1c9dc"
+    DIST_EXECUTOR_MD5="7024fb31d527aaaf60cb145b4aed7235"
 }
 
 rename_wheel() {
@@ -72,7 +72,7 @@ solve_dependency() {
 
         if [ ${solved} -ne 1 ]; then
             echo "Downloading dependency"
-            wget https://ms-dataset.obs.cn-north-4.myhuaweicloud.com/mindpandas/dist_executor.tar.gz
+            wget https://mindpandas.obs.cn-north-4.myhuaweicloud.com/0.1.0/dist_executor.tar.gz
         fi
     fi
 
