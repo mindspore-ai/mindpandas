@@ -76,10 +76,10 @@ def start(master, address, cpu, datamem, mem):
     """The command to start distributed executor service."""
     if cpu is None:
         cpu = multiprocessing.cpu_count() * 1000
-    available_memory = psutil.virtual_memory().available // (1 << 20)  # Available memory in MB.
+    system_memory = psutil.virtual_memory().total // (1 << 20)  # Available memory in MB.
     if datamem is None and mem is None:
-        datamem = int(available_memory * 0.25)
-        mem = int(available_memory * 0.75)
+        datamem = int(system_memory * 0.3)
+        mem = int(system_memory * 0.9)
     local_address = address if master else None
     options = ['-m' if master else '',
                f'-a {address}' if address is not None else '',
