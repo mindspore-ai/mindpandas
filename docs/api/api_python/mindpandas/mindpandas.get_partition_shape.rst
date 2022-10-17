@@ -1,6 +1,3 @@
-mindpandas.get_partition_shape
-======================
-
 .. py:function:: mindpandas.get_partition_shape()
 
     获取当前切片维度。
