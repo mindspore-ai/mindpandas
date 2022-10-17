@@ -1,6 +1,3 @@
-mindpandas.get_adaptive_concurrency
-======================
-
 .. py:function:: mindpandas.get_adaptive_concurrency(**kwargs)
 
     设置后端运行模式。

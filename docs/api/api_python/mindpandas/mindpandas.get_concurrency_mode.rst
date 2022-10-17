@@ -1,6 +1,3 @@
-mindpandas.get_concurrency_mode
-======================
-
 .. py:function:: mindpandas.get_concurrency_mode(**kwargs)
 
     获取当前的后端运行模式。

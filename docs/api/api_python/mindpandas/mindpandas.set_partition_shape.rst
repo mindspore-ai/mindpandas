@@ -1,6 +1,3 @@
-mindpandas.set_partition_shape
-======================
-
 .. py:function:: mindpandas.set_partition_shape(shape)
 
     设置数据分片的shape。

@@ -1,6 +1,3 @@
-mindpandas.get_min_block_size
-======================
-
 .. py:function:: mindpandas.get_min_block_size(**kwargs)
 
     获取每个分区的当前最小块大小。
