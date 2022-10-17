@@ -16,6 +16,6 @@ MindPandas是一款兼容Pandas接口，同时提供分布式处理能力的数�
 
 感谢以下人员做出的贡献:
 
-caiyimeng, chenyue li, dessyang, liyuxia, lichen_101010, Martin Yang, panfengfeng, RobinGrosman, shenghong96, Tom Chen, wangyue, xiaohanzhang, xutianyu, yanghaitao, youtianming
+caiyimeng, chenyue li, dessyang, liyuxia, lichen_101010, Martin Yang, panfengfeng, RobinGrosman, shenghong96, Tom Chen, wangyue, weisun092, xiaohanzhang, xutianyu, yanghaitao, youtianming
 
 欢迎以任何形式对项目提供贡献！
