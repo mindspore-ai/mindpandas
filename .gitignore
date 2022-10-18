@@ -3,6 +3,7 @@ build/
 mindpandas/__pycache__/
 mindpandas/backend/__pycache__/
 mindpandas/backend/eager/__pycache__/
+mindpandas/backend/eager/yr/__pycache__
 mindpandas/compiler/__pycache__/
 output/
 tests/ut/__pycache__/

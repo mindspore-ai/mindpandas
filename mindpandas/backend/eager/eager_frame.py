@@ -203,8 +203,10 @@ class EagerFrame(BaseFrame):
     def append(self, other):
         '''Append other partitions to frame.'''
         df_row_split_points = self.get_axis_split_points(axis=1)
-        df_in = self.axis_repartition(axis=1, by='split_pos', by_data=df_row_split_points)
-        df_other = other.axis_repartition(axis=1, by='split_pos', by_data=df_row_split_points)
+        df_in = self.axis_repartition(axis=1, mblock_size=i_config.get_min_block_size(),
+                                      by='split_pos', by_data=df_row_split_points)
+        df_other = other.axis_repartition(axis=1, mblock_size=i_config.get_min_block_size(),
+                                          by='split_pos', by_data=df_row_split_points)
         new_part = np.append(df_in.partitions, df_other.partitions, axis=0)
         # update the coord of the appended new partitions
         self.ops.reset_coord(new_part)
@@ -329,7 +331,7 @@ class EagerFrame(BaseFrame):
     def map(self, map_func, fuse=False, pass_coord=False, repartition=False, **kwargs):
         '''Perform map operation on the frame with a map function.'''
         if self.partitions.shape == (1, 1) and repartition:
-            frame = self.repartition(self.default_partition_shape)
+            frame = self.repartition(self.default_partition_shape, i_config.get_min_block_size())
         else:
             frame = self
         if frame.ops is mp_ops:
@@ -388,7 +390,7 @@ class EagerFrame(BaseFrame):
                     part.coord = (part.coord[1], part.coord[0])
         return EagerFrame(reduced_partitions)
 
-    def repartition(self, output_shape, mblock_size=i_config.get_min_block_size()):
+    def repartition(self, output_shape, mblock_size):
         '''Repartition the frame according to output_shape.'''
         output_partitions = self.ops.repartition(self.partitions, output_shape, mblock_size)
         return EagerFrame(output_partitions)
@@ -401,9 +403,10 @@ class EagerFrame(BaseFrame):
         '''Get axis repartition range.'''
         return self.ops.get_axis_repart_range(self.partitions, axis=axis, by=by, by_data=by_data)
 
-    def axis_repartition(self, axis, by, by_data):
+    def axis_repartition(self, axis, mblock_size, by, by_data):
         '''Perform repartition along axis.'''
-        output_partitions = self.ops.axis_repartition(self.partitions, axis=axis, by=by, by_data=by_data)
+        output_partitions = self.ops.axis_repartition(self.partitions, axis=axis,
+                                                      mblock_size=mblock_size, by=by, by_data=by_data)
         return EagerFrame(output_partitions)
 
     def to_pandas(self, force_series=False):
@@ -954,7 +957,6 @@ class EagerFrame(BaseFrame):
         if not deep:
             output_partitions = copy_module.copy(self.partitions)
         else:
-            # temporary fix, will remove when yr fixs the error
             if (
                     self.partitions is not None and
                     not self.partitions.size and
@@ -984,7 +986,8 @@ class EagerFrame(BaseFrame):
         df_row_split_points = self.get_axis_split_points(axis=0)
         append_row_split_points = appending_frame.get_axis_split_points(axis=0)
         if not np.array_equal(df_row_split_points, append_row_split_points):
-            appending_frame = appending_frame.axis_repartition(axis=0, by='split_pos', by_data=df_row_split_points)
+            appending_frame = appending_frame.axis_repartition(axis=0, mblock_size=i_config.get_min_block_size(),
+                                                               by='split_pos', by_data=df_row_split_points)
         if self.ops is mp_ops and appending_frame.ops is mt_ops:
             appending_frame.partitions = mt_ops.convert_partitions(appending_frame.partitions)
         self.partitions = np.concatenate([self.partitions, appending_frame.partitions], axis=1)

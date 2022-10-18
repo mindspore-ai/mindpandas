@@ -17,7 +17,7 @@ Module for eager execution of general pandas operations.
 """
 import numpy as np
 import pandas
-import mindpandas as mpd
+import mindpandas.iternal_config as i_config
 from .eager_frame import EagerFrame
 from .eager_backend import get_partition
 
@@ -53,5 +53,6 @@ def concat(objs,
                                    **kwargs)
     partition = get_partition().put(data=pd_concated_df, coord=(0, 0))
     output_frame = EagerFrame(np.array([[partition]]))
-    output_frame = output_frame.repartition(mpd.iternal_config.get_partition_shape())
+    output_frame = output_frame.repartition(i_config.get_partition_shape(),
+                                            i_config.get_min_block_size())
     return output_frame

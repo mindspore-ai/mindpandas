@@ -1679,7 +1679,8 @@ class DataFrame:
             new_partition_shape[0] = partition_shape[0]
         if shape[1] == -1:
             new_partition_shape[1] = partition_shape[1]
-        self.backend_frame = self.backend_frame.repartition(tuple(new_partition_shape))
+        self.backend_frame = self.backend_frame.repartition(tuple(new_partition_shape),
+                                                            i_config.get_min_block_size())
 
     def __invert__(self):
         output_dataframe = self._qc.invert(self)
