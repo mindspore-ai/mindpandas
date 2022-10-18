@@ -1,12 +1,9 @@
-.. py:function:: mindpandas.set_adaptive_concurrency(**kwargs)
+.. py:function:: mindpandas.set_adaptive_concurrency(adaptive)
 
-    设置后端运行模式。
-
-    .. note::
-        - 可以设置mode为multithread或yr两种后端模式，默认值为multithread。multithread模式为多线程后端，yr模式为多进程后端。
+    用户可以设置自适应并发，让 `read_csv` 基于文件大小自动选择并发模式。可选项为"True"或"False"。设置为True时，从 `read_csv` 读取的文件大小超过18MB，或者使用"pandas.DataFrame"初始化的"mindpandas.DataFrame"，内存占用大于1GB时将使用多进程模式，否则使用多线程模式。设置为False时，会使用当前的并发模式。
 
     参数：
-        - **mode** (str) - 设置后端运行模式。
+        - **adaptive** (bool) - True或False。
 
     异常：
-        - **ValueError** - 该模式不支持。
+        - **ValueError** - `adaptive` 不是True或者False。
