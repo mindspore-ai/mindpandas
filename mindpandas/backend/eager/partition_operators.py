@@ -680,6 +680,22 @@ class SinglethreadOperator:
         return output_partitions
 
     @classmethod
+    def remove_empty_partitions(cls, partitions):
+        """Remove empty partitions in single-thread mode."""
+        nonempty_partitions = []
+        for row_parts in partitions:
+            nonempty_row_parts = []
+            for part in row_parts:
+                if part.num_rows == 0 or part.num_cols == 0:
+                    continue
+                nonempty_row_parts.append(part)
+            if nonempty_row_parts:
+                nonempty_partitions.append(nonempty_row_parts)
+        partitions = np.array(nonempty_partitions, ndmin=2)
+        cls.reset_coord(partitions)
+        return partitions
+
+    @classmethod
     def setitem_elements(cls, partitions, func, part_row_locs, part_col_locs, item):
         """Setting item to specific rows/cols in specific partitions
 

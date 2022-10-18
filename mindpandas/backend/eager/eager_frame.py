@@ -981,6 +981,14 @@ class EagerFrame(BaseFrame):
         output_partitions = self.ops.remove_empty_rows(self.partitions)
         return EagerFrame(output_partitions)
 
+    def validate_partitions(self):
+        """validate partitions and remove invalid partitions."""
+        output_partitions = self.ops.remove_empty_partitions(self.partitions)
+        if output_partitions.size > 0:
+            return EagerFrame(output_partitions)
+        # empty dataframe
+        return EagerFrame(None)
+
     def append_column(self, appending_frame):
         '''Append column to frame.'''
         df_row_split_points = self.get_axis_split_points(axis=0)
