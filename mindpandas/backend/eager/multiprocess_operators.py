@@ -1,7 +1,7 @@
 """Multiprocess Operator Class"""
 import concurrent.futures
 import warnings
-from functools import partial
+from functools import partial, wraps
 from collections import defaultdict
 import hashlib
 
@@ -9,11 +9,30 @@ import numpy as np
 import pandas
 from pandas.api.types import is_numeric_dtype
 
+import mindpandas as mpd
 from .ds_partition import DSPartition as Partition
 from .eager_backend import get_scheduler
 from .eager_backend import remote_functions as rf
 from .partition_operators import SinglethreadOperator
 
+def wait_computations_finished(func):
+    """
+    Make sure a `func` finished its computations in benchmark mode.
+    """
+    @wraps(func)
+    def wait(*args, **kwargs):
+        """Wait for computation results."""
+        result = func(*args, **kwargs)
+        # if benchmark_mode is True, wait until the computation is finished
+        if not mpd.iternal_config.get_benchmark_mode():
+            return result
+        if isinstance(result, tuple):
+            partitions = result[0]
+        else:
+            partitions = result
+        all(map(lambda partition: partition.wait() or True, partitions.flatten()))
+        return result
+    return wait
 
 def determine_if_multithreaded_partitions(partitions, is_scalar=False):
     return not is_scalar and partitions is not None and len(partitions) > 0 and not isinstance(partitions[0][0],
@@ -23,16 +42,16 @@ def determine_if_multithreaded_partitions(partitions, is_scalar=False):
 class MultiprocessOperator(SinglethreadOperator):
     """Multiprocess Operator Class"""
     @classmethod
-    def append_func_queue(cls, partitions, func):
-        func_id = get_scheduler().put(func)
+    def append_func_queue(cls, partitions, func, *args, **kwargs):
         output_partitions = np.ndarray(partitions.shape, dtype=object)
         for row_parts in partitions:
             for part in row_parts:
-                output_part = part.append_func(func_id)
+                output_part = part.append_func(func, *args, **kwargs)
                 output_partitions[output_part.coord] = output_part
         return output_partitions
 
     @classmethod
+    @wait_computations_finished
     def apply_func_queue(cls, partitions, pass_coord=False, **kwargs):
         """apply func_queue for partitions"""
         # return immediately if there is no work to do
@@ -57,15 +76,25 @@ class MultiprocessOperator(SinglethreadOperator):
         return output_partitions
 
     @classmethod
+    @wait_computations_finished
     def map(cls, partitions, map_func, pass_coord=False, **kwargs):
         fuse = kwargs.pop('fuse', False)
-        partitions = cls.append_func_queue(partitions, map_func)
+        partitions = cls.append_func_queue(partitions, map_func, **kwargs)
         if not fuse:
             partitions = cls.apply_func_queue(partitions, pass_coord, **kwargs)
         return partitions
 
     @classmethod
+    @wait_computations_finished
     def injective_map(cls, partitions, cond_partitions, other, func, is_scalar):
+        #clear func_queue for cond_partiitons
+        if cond_partitions is not None and isinstance(cond_partitions, np.ndarray):
+            cond_partitions = cls.apply_func_queue(cond_partitions)
+        #clear func queue for other
+        if other is not None and isinstance(other, np.ndarray):
+            other = cls.apply_func_queue(other)
+        #clear func_queue for partitions
+        partitions = cls.apply_func_queue(partitions)
         inj_func_id = get_scheduler().put(func)
         output_partitions = np.ndarray(partitions.shape, dtype=object)
         if cond_partitions is None:
@@ -148,6 +177,7 @@ class MultiprocessOperator(SinglethreadOperator):
         return output_partitions
 
     @classmethod
+    @wait_computations_finished
     def reduce(cls, partitions, reduce_func, axis=0, concat_axis=None):
         partitions = cls.apply_func_queue(partitions)
         reduce_func_id = get_scheduler().put(reduce_func)
@@ -172,7 +202,7 @@ class MultiprocessOperator(SinglethreadOperator):
                         idx = coord[1]
                         # start reduction as soon as whole column of partitions are ready
                         if pending_ids_mask[:, idx].all():
-                            axis_id_list = [part.data_id for part in partitions[:, idx]]
+                            axis_id_list = [part.get_updated_partition().data_id for part in partitions[:, idx]]
                             future_id, meta_data_id = get_scheduler().remote(rf()._remote_map_axis, axis_id_list,
                                                                              reduce_func_id, axis, concat_axis)
                             output_part = Partition.put(data_id=future_id, meta_id=meta_data_id, coord=(0, idx))
@@ -180,7 +210,7 @@ class MultiprocessOperator(SinglethreadOperator):
                     elif axis == 1:
                         idx = coord[0]
                         if pending_ids_mask[idx, :].all():
-                            axis_id_list = [part.data_id for part in partitions[idx, :]]
+                            axis_id_list = [part.get_updated_partition().data_id for part in partitions[idx, :]]
                             future_id, meta_data_id = get_scheduler().remote(rf()._remote_map_axis, axis_id_list,
                                                                              reduce_func_id, axis, concat_axis)
                             output_part = Partition.put(data_id=future_id, meta_id=meta_data_id, coord=(idx, 0))
@@ -240,11 +270,12 @@ class MultiprocessOperator(SinglethreadOperator):
         return output_parts
 
     @classmethod
+    @wait_computations_finished
     def repartition(cls, parts, output_shape, mblock_size):
-        parts = cls.flush(parts)
         return super().repartition(parts, output_shape, mblock_size)
 
     @classmethod
+    @wait_computations_finished
     def axis_repartition(cls, parts, axis=0, mblock_size=1, by='size', by_data=None):
         repart_range_dict, axis_size = cls.get_axis_repart_range(parts, axis, mblock_size, by=by, by_data=by_data)
         if axis == 0:
@@ -271,7 +302,7 @@ class MultiprocessOperator(SinglethreadOperator):
                             # If the original data cannot be deserialized with zero-copy,
                             # then each worker needs a copy of the original data,
                             # so limit the parallelism to improve performance and avoid OOM
-                            axis_id_list = [part.data_id for part in parts[:, idx]]
+                            axis_id_list = [part.get_updated_partition().data_id for part in parts[:, idx]]
                             future_list_id, meta_data_list_id = get_scheduler().remote(rf()._remote_concat_segments,
                                                                                        axis_id_list,
                                                                                        axis,
@@ -280,7 +311,7 @@ class MultiprocessOperator(SinglethreadOperator):
                     elif axis == 1:
                         idx = coord[0]
                         if pending_ids_mask[idx, :].all():
-                            axis_id_list = [part.data_id for part in parts[idx, :]]
+                            axis_id_list = [part.get_updated_partition().data_id for part in parts[idx, :]]
                             future_list_id, meta_data_list_id = get_scheduler().remote(rf()._remote_concat_segments,
                                                                                        axis_id_list,
                                                                                        axis,
@@ -306,6 +337,7 @@ class MultiprocessOperator(SinglethreadOperator):
         return output_partitions
 
     @classmethod
+    @wait_computations_finished
     def axis_partition(cls, partitions, axis):
         # similar to reduce, except no apply_func
         partitions = cls.apply_func_queue(partitions)
@@ -328,7 +360,7 @@ class MultiprocessOperator(SinglethreadOperator):
                         idx = coord[1]
                         # start concat as soon as whole column of partitions are ready
                         if pending_ids_mask[:, idx].all():
-                            axis_id_list = [part.data_id for part in partitions[:, idx]]
+                            axis_id_list = [part.get_updated_partition().data_id for part in partitions[:, idx]]
                             future_id, meta_data_id = get_scheduler().remote(rf()._remote_concat_axis,
                                                                              axis_id_list,
                                                                              axis)
@@ -337,7 +369,7 @@ class MultiprocessOperator(SinglethreadOperator):
                     elif axis == 1:
                         idx = coord[0]
                         if pending_ids_mask[idx, :].all():
-                            axis_id_list = [part.data_id for part in partitions[idx, :]]
+                            axis_id_list = [part.get_updated_partition().data_id for part in partitions[idx, :]]
                             future_id, meta_data_id = get_scheduler().remote(rf()._remote_concat_axis,
                                                                              axis_id_list,
                                                                              axis)
@@ -348,8 +380,7 @@ class MultiprocessOperator(SinglethreadOperator):
 
     @classmethod
     def mask(cls, partitions, rows_index, columns_index, rows_partition_index_dict, columns_partition_index_dict,
-             is_series=False):
-        partitions = cls.apply_func_queue(partitions)
+             is_series=False, func=None):
 
         num_rows, num_cols = partitions.shape
         if rows_index is not None:
@@ -375,7 +406,8 @@ class MultiprocessOperator(SinglethreadOperator):
                     coord = input_futures[fid].coord
                     row_internal_indices = rows_partition_index_dict[coord[0]]
                     col_internal_indices = columns_partition_index_dict[coord[1]]
-                    output_part = input_futures[fid].mask(row_internal_indices, col_internal_indices, is_series)
+                    output_part = input_futures[fid].mask(row_internal_indices, col_internal_indices,
+                                                          is_series, func=func)
                     output_part.coord = row_id_mapping.get(output_part.coord[0]), col_id_mapping.get(
                         output_part.coord[1])
                     output_partitions[output_part.coord] = output_part
@@ -383,6 +415,7 @@ class MultiprocessOperator(SinglethreadOperator):
         return output_partitions
 
     @classmethod
+    @wait_computations_finished
     def groupby_map(cls, partitions, axis, keys_partitions, map_func):
         if map_func.groupby_kwargs['level']:
             # Groupby level, we don't need distribute key_partitions in this case
@@ -474,8 +507,9 @@ class MultiprocessOperator(SinglethreadOperator):
         return output_partitions
 
     @classmethod
+    @wait_computations_finished
     def set_index(cls, partitions, labels):
-        partitions = cls.apply_func_queue(partitions)
+        output_partitions = np.ndarray(partitions.shape, dtype=object)
 
         def set_index_1d():
             if labels is None:
@@ -490,6 +524,8 @@ class MultiprocessOperator(SinglethreadOperator):
                 for fid in ready_ids:
                     if fid in input_futures:
                         input_futures[fid].set_index(sub_labels)
+                        output_part = input_futures[fid].set_index(sub_labels)
+                        output_partitions[output_part.coord] = output_part
 
         def set_index_2d():
             sub_labels = []
@@ -510,11 +546,14 @@ class MultiprocessOperator(SinglethreadOperator):
                     if fid in input_futures:
                         input_row, _ = input_futures[fid].coord
                         input_futures[fid].set_index(sub_labels[input_row])
+                        output_part = input_futures[fid].set_index(sub_labels[input_row])
+                        output_partitions[output_part.coord] = output_part
 
         if partitions.shape[0] == 1:
             set_index_1d()
         else:
             set_index_2d()
+        return output_partitions
 
 
     @classmethod
@@ -620,6 +659,7 @@ class MultiprocessOperator(SinglethreadOperator):
 
 
     @classmethod
+    @wait_computations_finished
     def squeeze(cls, partitions, axis=None):
         partitions = cls.apply_func_queue(partitions)
         output_partitions = np.ndarray(partitions.shape, dtype=object)
@@ -706,6 +746,7 @@ class MultiprocessOperator(SinglethreadOperator):
         return partitions
 
     @classmethod
+    @wait_computations_finished
     def axis_partition_to_selected_indices(cls, partitions, axis, func, indices, keep_reminding=False):
         if partitions.size == 0:
             return np.array([[]])
@@ -754,6 +795,7 @@ class MultiprocessOperator(SinglethreadOperator):
         return result
 
     @classmethod
+    @wait_computations_finished
     def remove_empty_rows(cls, partitions):
         partitions = cls.apply_func_queue(partitions)
         del_list = []
@@ -774,6 +816,28 @@ class MultiprocessOperator(SinglethreadOperator):
                     input_row_id, input_col_id = input_futures[fid][1], input_futures[fid][2]
                     input_part.coord = (input_row_id, input_col_id)
 
+        return output_partitions
+
+    @classmethod
+    @wait_computations_finished
+    def get_select_partitions(cls, partitions, indice, axis):
+        """Apply func_queue for partitions"""
+        if axis == 1:
+            output_partitions = [None]*partitions.shape[1]
+            input_futures = {part.data_id: part for part in partitions[indice, :]}
+        else:
+            output_partitions = [None]*partitions.shape[0]
+            input_futures = {part.data_id: part for part in partitions[:, indice]}
+        pending_ids = list(input_futures.keys())
+        while pending_ids:
+            ready_ids, pending_ids = get_scheduler().wait(pending_ids)
+            for fid in ready_ids:
+                if fid in input_futures:
+                    part = input_futures[fid].apply_queue()
+                    if axis == 1:
+                        output_partitions[part.coord[1]] = part
+                    else:
+                        output_partitions[part.coord[0]] = part
         return output_partitions
 
     @classmethod
@@ -803,6 +867,7 @@ class MultiprocessOperator(SinglethreadOperator):
         return partitions
 
     @classmethod
+    @wait_computations_finished
     def setitem_elements(cls, partitions, func, part_row_locs, part_col_locs, item):
         """Setting item to specific rows/cols in specific partitions
 

@@ -451,6 +451,7 @@ class MultithreadOperator(SinglethreadOperator):
     @classmethod
     def set_index(cls, partitions, labels):
         '''Set index of partitions with labels.'''
+        output_partitions = np.ndarray(partitions.shape, dtype=object)
         def set_index_1d():
             '''Set index on 1D partitions.'''
             if labels is None:
@@ -463,8 +464,10 @@ class MultithreadOperator(SinglethreadOperator):
                 for row_parts in partitions:
                     for part in row_parts:
                         future_parts[executor.submit(part.set_index, sub_new_labels)] = part
-                for _ in concurrent.futures.as_completed(future_parts):
-                    continue  # loop through all futures make sure all parts have set their index
+                for future in concurrent.futures.as_completed(future_parts):
+                    #continue  # loop through all futures make sure all parts have set their index
+                    output_part = future.result()
+                    output_partitions[output_part.coord] = output_part
 
         def set_index_2d():
             '''Set index on 2D partitions.'''
@@ -480,13 +483,20 @@ class MultithreadOperator(SinglethreadOperator):
                     for part in row_parts:
                         future_parts[executor.submit(part.set_index, sub_new_labels)] = part
                     start = end
-                for _ in concurrent.futures.as_completed(future_parts):
-                    continue  # loop through all futures make sure all parts have set their index
+                for future in concurrent.futures.as_completed(future_parts):
+                    #continue  # loop through all futures make sure all parts have set their index
+                    output_part = future.result()
+                    output_partitions[output_part.coord] = output_part
 
         if partitions.shape[0] == 1:
             set_index_1d()
         else:
             set_index_2d()
+        return output_partitions
+
+    def append_func(self, apply_func, *args, **kwargs):
+        # add this function to be consistent with multiprocess mode
+        return self.apply(apply_func, *args, **kwargs)
 
     @classmethod
     def update(cls, partitions, new_partitions):

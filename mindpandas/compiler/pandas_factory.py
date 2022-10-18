@@ -1015,3 +1015,18 @@ class SetSeriesName:
         # Handling dataframe here because each partition is a dataframe type in the backend
         dataframe.columns = [self.value]
         return dataframe
+
+
+class MaskILoc:
+    """select rows/columns based on given index"""
+
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+
+    def __call__(self, data, row_indices, column_indices, is_series=False):
+        '''Apply mask on data using specified indices.'''
+        output = data.iloc[row_indices, column_indices]
+        output_shape = output.shape
+        if is_series and len(output_shape) > 1 and output_shape[1] == 1:
+            output = output.squeeze("columns")
+        return output

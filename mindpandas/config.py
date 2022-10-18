@@ -17,6 +17,7 @@ import mindpandas.backend.eager.eager_backend as eager_backend
 import mindpandas.iternal_config as i_config
 
 __all__ = ['set_concurrency_mode', 'get_concurrency_mode', 'set_partition_shape', 'get_partition_shape',
+           'set_benchmark_mode', 'get_benchmark_mode',
            'set_adaptive_concurrency', 'get_adaptive_concurrency', 'set_min_block_size', 'get_min_block_size']
 
 
@@ -72,6 +73,40 @@ def get_concurrency_mode():
     if mode == 'yr':
         mode = 'multiprocess'
     return mode
+
+def set_benchmark_mode(mode):
+    """
+    Users can select if they want to turn on benchmarkmode for performance analysis. Default mode is False.
+
+    Args:
+        mode(str): This parameter can be set to True or False.
+
+    Raises:
+        ValueError: If mode is not True or False.
+
+    Examples:
+        >>> # Change the mode to True..
+        >>> mindspore.pandas.config.set_benchmark_mode(True)
+    """
+    support_mode = [True, False]
+    if mode not in support_mode:
+        raise ValueError("Mode {} is not supported.")
+
+    i_config.set_benchmark_mode(mode)
+
+
+def get_benchmark_mode():
+    """
+    Get the current benchmark mode.
+
+    Returns:
+        str, current benchmark mode.
+
+    Examples:
+        >>> # Get the current benchmark mode.
+        >>> mode = mindspore.pandas.config.get_benchmark_mode
+    """
+    return i_config.get_benchmark_mode()
 
 
 def set_partition_shape(shape):

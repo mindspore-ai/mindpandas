@@ -128,7 +128,7 @@ def read_csv(filepath, **kwargs):
     def default_to_pandas_read_csv(filepath, **kwargs):
         df = pandas.read_csv(filepath, **kwargs)
         partition = eager_backend.get_partition().put(data=df, coord=(0, 0))
-        output_frame = EagerFrame(np.array([[partition]]))  # single partition
+        output_frame = EagerFrame(np.array([[partition]]), index=df.index, columns=df.columns)
         output_frame = output_frame.repartition(output_shape=output_frame.default_partition_shape,
                                                 mblock_size=i_config.get_min_block_size())
         return output_frame
@@ -166,7 +166,7 @@ def read_csv(filepath, **kwargs):
 def read_feather(filepath, **kwargs):
     df = pandas.read_feather(filepath, **kwargs)
     partition = eager_backend.get_partition().put(data=df, coord=(0, 0))
-    output_frame = EagerFrame(np.array([[partition]]))
+    output_frame = EagerFrame(np.array([[partition]]), df.index, df.columns)
     output_frame = output_frame.repartition(output_shape=output_frame.default_partition_shape,
                                             mblock_size=i_config.get_min_block_size())
     return output_frame
@@ -197,11 +197,13 @@ def from_pandas(pandas_df, container_type=pandas.DataFrame):
         partition_shape = i_config.get_partition_shape()
     num_rows = len(pandas_df)
     num_cols = len(pandas_df.columns) if isinstance(pandas_df, pandas.DataFrame) else 1
+    if isinstance(pandas_df, pandas.Series):
+        pandas_df = pandas.DataFrame(pandas_df)
     row_slices, col_slices = ops.get_slicing_plan(num_rows, num_cols,
                                                   partition_shape,
                                                   i_config.get_min_block_size())
     output_partitions = ops.partition_pandas(pandas_df, row_slices, col_slices, container_type)
-    output_frame = EagerFrame(output_partitions)
+    output_frame = EagerFrame(output_partitions, pandas_df.index, pandas_df.columns, dtypes=pandas_df.dtypes)
     return output_frame
 
 
@@ -313,7 +315,7 @@ def fast_read_csv(file_path, header, file_size=None, **kwargs):
         df_meta.loc[i] = [split_points[i], split_points[i + 1], cols, dtypes, file_path, local_header]
 
     meta_partition = eager_backend.get_partition().put(data=df_meta, coord=(0, 0))
-    meta_frame = EagerFrame(np.array([[meta_partition]]))  # single partition
+    meta_frame = EagerFrame(np.array([[meta_partition]]), df_meta.index, df_meta.columns)  # single partition
     meta_frame = meta_frame.repartition(output_shape=(len(df_meta), 1), mblock_size=1)
 
     frame = meta_frame.map(read_csv_mapfn, **kwargs)
@@ -325,7 +327,7 @@ def fast_read_csv(file_path, header, file_size=None, **kwargs):
     if isinstance(df_head.index, pandas.RangeIndex):
         # If no explicit index is provided, each partition will automatically generate a RangeIndex starting from 0,
         # so we need to regenerate an index for all partitions.
-        frame.set_index(None)
+        frame = frame.set_index(None)
 
     return frame
 

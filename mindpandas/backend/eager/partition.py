@@ -54,6 +54,9 @@ class Partition():
         '''Get partition data.'''
         return self.data
 
+    def append_func(self, apply_func, *args, **kwargs):
+        return self.apply(apply_func, *args, **kwargs)
+
     @classmethod
     def put(cls, data, coord=None, container_type=None):
         '''Put data into partitions.'''
@@ -141,9 +144,8 @@ class Partition():
     @index.setter
     def index(self, val):
         '''Set index of partitions.'''
-        if self.container_type in (pandas.DataFrame, pandas.Series):
-            self.data.index = val
-            self._index = val
+        self.data.index = val
+        self._index = val
 
     @property
     def columns(self):
@@ -153,9 +155,10 @@ class Partition():
     @columns.setter
     def columns(self, val):
         '''Set partition columns.'''
-        if self.container_type in (pandas.DataFrame, pandas.Series):
-            self.get().columns = val
-            self._columns = val
+        #if self.container_type in (pandas.DataFrame, pandas.Series):
+        self.get().columns = val
+        self._columns = val
+
 
     @property
     def dtypes(self):
@@ -202,7 +205,9 @@ class Partition():
 
     def set_index(self, labels):
         '''Set index of partitions with labels.'''
-        self.data.index = labels
+        output_partition = self
+        output_partition.data.index = labels
+        return output_partition
 
     def update(self, new_part):
         '''Update partitions with new data.'''

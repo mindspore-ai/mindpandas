@@ -86,6 +86,7 @@ class QueryCompiler:
         is_mapping = False
         drop = as_index
         default_to_pandas = False
+        mask_func = ff.mask_iloc()
 
         # NOTE:
         # by could be
@@ -143,7 +144,7 @@ class QueryCompiler:
             # Groupby a column label or a index level
             if (axis == 0 and by in column_labels) or input_is_series:  # groupby a column labels
                 # Groupby a column label
-                by_dataframe = input_dataframe.backend_frame.get_columns(by)   # only send df
+                by_dataframe = input_dataframe.backend_frame.get_columns(by, func=mask_func)   # only send df
                 by_names = by
             elif (axis == 0) or input_is_series:    # by in index_names
                 # Groupby a level label
@@ -154,7 +155,8 @@ class QueryCompiler:
                 if by in column_level:
                     default_to_pandas = True
                 else:
-                    by_dataframe = input_dataframe.backend_frame.get_rows(by)   # only send df
+                    mask_func = ff.mask_iloc()
+                    by_dataframe = input_dataframe.backend_frame.get_rows(by, func=mask_func)   # only send df
                     by_names = by
             else:
                 raise TypeError(f"'{by.__class__.__name__}' object is not callable")
@@ -171,7 +173,7 @@ class QueryCompiler:
                 if (axis == 0 and all(is_label(b) and b in all_labels for b in by)) and (not input_is_series):
                     # Groupby a list of labels
                     if axis == 0 and all(b in column_labels for b in by):   # groupby a column labels
-                        by_dataframe = input_dataframe.backend_frame.get_columns(by)
+                        by_dataframe = input_dataframe.backend_frame.get_columns(by, func=mask_func)
                         by_names = by
                     elif axis == 0:  # groupby an index levels
                         # NOTE: by_dataframe can be an eager frame contains a series of labels so we can pass as the
@@ -373,7 +375,7 @@ class QueryCompiler:
                     input_dataframe = input_dataframe.loc[dict_values]  # loc mess up the partitions sizes
                     input_dataframe = input_dataframe.reset_index()
                     index_reseted = input_dataframe.columns[0]
-                    by_dataframe = input_dataframe.backend_frame.get_columns(index_reseted)
+                    by_dataframe = input_dataframe.backend_frame.get_columns(index_reseted, func=mask_func)
                     by_names = index_reseted
                     is_mapping = True
 
@@ -387,7 +389,8 @@ class QueryCompiler:
                             cols_index.append(i)
                     output_frame = input_dataframe.backend_frame
                     rows_index = list(range(output_frame.num_rows))
-                    output_frame = output_frame.mask(rows_index, cols_index)  # Drop unused columns
+                    mask_func = ff.mask_iloc()
+                    output_frame = output_frame.view(rows_index_numeric=rows_index, columns_index_numeric=cols_index, func=mask_func)  # Drop unused columns
                     output_frame = cls.create_backend_frame(output_frame.to_pandas(), index=None, columns=None,
                                                             dtype=None, copy=None)
 
@@ -574,8 +577,10 @@ class QueryCompiler:
                 input_dataframe.columns[~input_dataframe.columns.isin(columns)].unique()))
         else:
             columns_numeric_indices = None
-        frame = input_dataframe.backend_frame.mask(rows_index=index_numeric_indices,
-                                                   columns_index=columns_numeric_indices)
+        mask_func = ff.mask_iloc()
+        frame = input_dataframe.backend_frame.view(rows_index_numeric=index_numeric_indices,
+                                                   columns_index_numeric=columns_numeric_indices,
+                                                   func=mask_func)
         return frame
 
     @classmethod
@@ -597,6 +602,7 @@ class QueryCompiler:
         # input_dataframe: DataFrameGroupBy type
         kwargs['groupby_kwargs'] = input_dataframe.kwargs  # add constructor parameters into kwargs
         kwargs['is_mapping'] = is_mapping
+        mask_func = ff.mask_iloc()
 
         if isinstance(input_dataframe, mpd.SeriesGroupBy) and get_item_key is not None:
             index = input_dataframe.by_dataframe.to_pandas()
@@ -605,7 +611,7 @@ class QueryCompiler:
             else:
                 index = pandas.Index(index)
 
-            new_dataframe = mpd.Series(input_dataframe.backend_frame.get_columns(get_item_key))
+            new_dataframe = mpd.Series(input_dataframe.backend_frame.get_columns(get_item_key, func=mask_func))
             new_dataframe.index = index
 
             input_dataframe = mpd.SeriesGroupBy(
@@ -873,8 +879,10 @@ class QueryCompiler:
             columns_numeric_indices = np.sort(input_dataframe.columns.get_indexer_for(
                 input_dataframe.columns
             ))
-        frame = input_dataframe.backend_frame.mask(rows_index=index_numeric_indices,
-                                                   columns_index=columns_numeric_indices)
+        mask_func = ff.mask_iloc()
+        frame = input_dataframe.backend_frame.view(rows_index_numeric=index_numeric_indices,
+                                                   columns_index_numeric=columns_numeric_indices,
+                                                   func=mask_func)
 
         result = mpd.DataFrame(frame)
         if ignore_index:
@@ -937,6 +945,7 @@ class QueryCompiler:
         This function is not called from any external pandas API.
         """
         df_columns = df.columns
+        mask_func = ff.mask_iloc()
         if isinstance(columns, (list, np.ndarray, pandas.Index, pandas.Series, mpd.Series)):
             output_series = False
             # Flag an error if the projected column(s) are not in the input dataframe
@@ -952,9 +961,9 @@ class QueryCompiler:
                 raise AttributeError(f"{type(df).__name__} object has no attribute '{columns}'")
             columns = [columns]
         if output_series:
-            frame = df.backend_frame.get_columns(columns, lhs, op, rhs)
+            frame = df.backend_frame.get_columns(columns, lhs, op, rhs, func=mask_func)
             return mpd.Series(frame)
-        frame = df.backend_frame.get_columns(columns, lhs, op, rhs)
+        frame = df.backend_frame.get_columns(columns, lhs, op, rhs, func=mask_func)
         return mpd.DataFrame(frame)
 
     @classmethod
@@ -987,7 +996,8 @@ class QueryCompiler:
         Compiling getitem for the case when getitem's result is a column array.
         This function is not called from any external pandas API.
         """
-        frame = input_dataframe.backend_frame.get_columns(columns)
+        mask_func = ff.mask_iloc()
+        frame = input_dataframe.backend_frame.get_columns(columns, func=mask_func)
         if is_series:
             return mpd.Series(frame)
         if is_scalar(columns) and hasattr(frame, 'columns') and frame.series_like:
@@ -1000,7 +1010,8 @@ class QueryCompiler:
         Compiling getitem for the case when getitem's result is a row array.
         This function is not called from any external pandas API.
         """
-        frame = input_dataframe.backend_frame.get_rows(indexes, indices_numeric)
+        mask_func = ff.mask_iloc()
+        frame = input_dataframe.backend_frame.get_rows(indexes, indices_numeric, func=mask_func)
         input_type = type(input_dataframe)
         return input_type(frame)
 
@@ -1141,7 +1152,7 @@ class QueryCompiler:
             if func_name in ['loc', 'iloc']:
                 assert len(args) == 3
                 getattr(pandas_df, func_name)[args[1], args[0]] = args[2]
-                df.backend_frame.update(pandas_df)
+                df.backend_frame = df.backend_frame.update(pandas_df)
                 return None
 
             if func_name == 'agg':
@@ -1159,7 +1170,7 @@ class QueryCompiler:
 
             # setitem does the inplace changes
             if func_name in ['__setitem__']:
-                df.backend_frame.update(pandas_df)
+                df.backend_frame = df.backend_frame.update(pandas_df)
                 return None
 
             if isinstance(result, tuple):
@@ -1708,8 +1719,8 @@ class QueryCompiler:
             return_type = mpd.DataFrame
         else:
             return_type = mpd.Series
-
-        frame = indexer.backend_frame.view(rows_index=row_ids, columns_index=col_ids)
+        mask_func = ff.mask_iloc()
+        frame = indexer.backend_frame.view(rows_index_numeric=row_ids, columns_index_numeric=col_ids, func=mask_func)
         if return_type == mpd.Series and frame.partition_shape[1] != 1:
             frame.transpose()
         return return_type(frame)
@@ -1806,6 +1817,7 @@ class QueryCompiler:
         frame = input_dataframe.backend_frame
         arrays = []
         names = []
+        mask_func = ff.mask_iloc()
         if append:
             names = list(frame.index.names)
             if isinstance(frame.index, pandas.MultiIndex):
@@ -1844,7 +1856,7 @@ class QueryCompiler:
                 )
 
         if to_remove:
-            extract_index = input_dataframe.backend_frame.to_labels(to_remove)
+            extract_index = input_dataframe.backend_frame.to_labels(to_remove, func=mask_func)
             names.extend(extract_index.names)
             if isinstance(extract_index, pandas.MultiIndex):
                 for i in range(extract_index.nlevels):
@@ -1855,13 +1867,14 @@ class QueryCompiler:
         new_index = ensure_index_from_sequences(arrays, names)
 
         if drop:
-            new_columns_list = [i for i in frame.columns_from_partitions() if i not in to_remove]
-            result = frame.get_columns(new_columns_list)
+            new_columns_list = [i for i in frame.columns if i not in to_remove]
+            result = frame.get_columns(new_columns_list, func=mask_func)
         else:
             result = frame.copy()
-
-        result.set_index(new_index)
-        return mpd.DataFrame(data=result)
+        # lazily mask the frame based on given columns_index
+        frame = result.view(columns_index=new_columns_list, func=mask_func)
+        frame.index = new_index
+        return mpd.DataFrame(data=frame)
 
     @classmethod
     def squeeze(cls, input_dataframe, axis=None):
@@ -2172,11 +2185,11 @@ class QueryCompiler:
                 insert_func = ff.insert(loc=internal_loc, column=name, value=level_values)
                 concat_func = ff.concat()
                 frame = frame.apply_select_indice_axis(insert_func, concat_func, indice=part_loc, axis=0)
-
-        frame.set_index(new_index)
-        if not inplace:
+            frame = frame.set_index(new_index)
             return mpd.DataFrame(data=frame)
-        return None
+
+        frame.index = new_index
+        return mpd.DataFrame(data=frame)
 
     @classmethod
     def set_axis(cls, input_dataframe, labels, axis=0, inplace=False):
@@ -2187,32 +2200,25 @@ class QueryCompiler:
                 frame = frame.copy()
             # change index
             if axis in (0, 'index'):
-                frame.set_index(labels)
-            # change columns
-            else:
-                # If new labels are as same as current columns, skip to_pandas() to reduce time wasting.
-                if frame.columns.equals(labels):
-                    if not inplace:
-                        return input_dataframe
-                    return None
-
-                # Note: The eager_frame does not have column_setter yet, please remove to_pandas once column_setter implements.
-                temp = frame.to_pandas()
-                temp.columns = labels
-                if inplace:
-                    input_dataframe.backend_frame = mpd.DataFrame(data=temp, columns=labels).backend_frame
-                else:
-                    return mpd.DataFrame(data=temp)
-            if not inplace:
+                frame = frame.set_index(labels)
                 return mpd.DataFrame(data=frame)
+            # change columns
+            # If new labels are as same as current columns, skip to_pandas() to reduce time wasting.
+            if frame.columns.equals(labels):
+                return input_dataframe
 
-        elif isinstance(input_dataframe, mpd.Series):
+            # added column_setter in EagerFrame, can assign value to columns directly
+            frame.columns = labels
+            if inplace:
+                return mpd.DataFrame(data=frame, columns=labels)
+            return mpd.DataFrame(data=frame)
+
+        if isinstance(input_dataframe, mpd.Series):
             series = input_dataframe.backend_frame
             if not inplace:
                 series = series.copy()
-            series.set_index(labels)
-            if not inplace:
-                return mpd.Series(data=series)
+            series = series.set_index(labels)
+            return mpd.Series(data=series)
 
         return None
 

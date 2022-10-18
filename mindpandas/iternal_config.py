@@ -19,6 +19,7 @@ _execution_mode = 'eager'
 _concurrency_mode = "multithread"
 _partition_shape = (16, 16)
 _min_block_size = 1
+_benchmark_mode = False
 adaptive_concurrency = False
 multithread_shape = (2, 2)
 multiprocess_shape = (16, 16)
@@ -58,6 +59,30 @@ def get_concurrency_mode():
 
     global _concurrency_mode
     return _concurrency_mode
+
+def set_benchmark_mode(mode):
+    """
+    Users can select if they want to turn on benchmarkmode for performance analysis. Default mode is False.
+
+    Args:
+        strategy(str): This parameter can be set to True or False.
+
+    Raises:
+        ValueError: If mode is not True or False.
+    """
+    global _benchmark_mode
+    _benchmark_mode = mode
+
+
+def get_benchmark_mode():
+    """
+    Get the current benchmark mode.
+
+    Returns:
+        str, current benchmark mde.
+    """
+    global _benchmark_mode
+    return _benchmark_mode
 
 
 def set_partition_shape(shape):

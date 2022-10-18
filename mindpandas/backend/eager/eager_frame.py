@@ -22,6 +22,7 @@ from collections import OrderedDict, defaultdict
 import numpy as np
 import pandas
 from pandas._libs.lib import is_list_like
+from pandas.core.indexes.api import ensure_index
 
 import mindpandas as mpd
 import mindpandas.iternal_config as i_config
@@ -40,7 +41,15 @@ class EagerFrame(BaseFrame):
     """
     Backend frame for executing eager operations on internal pandas partitions.
     """
-    def __init__(self, partitions=None):
+    def __init__(
+            self,
+            partitions=None,
+            index=None,
+            columns=None,
+            row_lengths=None,
+            column_widths=None,
+            dtypes=None,
+    ):
         """
         Parameters:
         ----------
@@ -73,58 +82,110 @@ class EagerFrame(BaseFrame):
             self.partitions = np.array([[part]])
         else:
             self.partitions = partitions
+        self._index_cache = index
+        self._columns_cache = columns
+        self._partition_rows_cache = row_lengths
+        self._partition_cols_cache = column_widths
+        self._dtypes = dtypes
+
 
     @property
-    def index(self):
-        '''Gets frame's index.'''
-        return self.index_from_partitions()
-
-    @property
-    def columns(self):
-        '''Gets frame's columns.'''
-        return self.columns_from_partitions()
-
+    def dtypes(self):
+        if self._dtypes is None:
+            self._dtypes = self.dtypes_from_partitions()
+        return self._dtypes
 
     @property
     def _partition_rows(self):
-        row_lengths = []
-        for first_col in self.partitions.T[0]:
-            if first_col.num_rows is None:
-                break
-            row_lengths.append(first_col.num_rows)
-        return row_lengths
+        """
+        get rows lengths for partitions
+        """
+        if self._partition_rows_cache is None:
+            self._partition_rows_cache = self._get_row_lengths_of_partitions()
+        return self._partition_rows_cache
 
     @property
-    def _partition_columns(self):
-        col_widths = []
-        for first_row in self.partitions[0]:
-            if first_row.num_cols is None:
-                break
-            col_widths.append(first_row.num_cols)
-        return col_widths
+    def _partition_cols(self):
+        """
+        get columns width for partitions.
+        """
+        if self._partition_cols_cache is None:
+            self._partition_cols_cache = self._get_column_widths_of_partitions()
+        return self._partition_cols_cache
 
     @property
-    def axes_lengths(self):
-        return [self._partition_rows, self._partition_columns]
+    def _partition_axes(self):
+        return [self._partition_rows, self._partition_cols]
+
+    def _validate_axis(self, new_labels, old_labels):
+        """
+        validate new labels
+        """
+        new_labels = ensure_index(new_labels)
+        original_length, new_length = len(old_labels), len(new_labels)
+        if original_length != new_length:
+            raise ValueError(
+                "Length does not match: Expected axis has %d elements, "
+                "new values have %d elements" % (original_length, new_length)
+            )
+        return new_labels
+
+    _index_cache = None
+    _columns_cache = None
+
+    def _get_eagerframe_index(self):
+        """
+        Get the index from the cache object.
+        """
+        if self._index_cache is not None:
+            return self._index_cache
+        return self._index_from_partitions()
+
+    def _get_eagerframe_columns(self):
+        """
+        Get the columns from the cache object.
+        """
+        if self._columns_cache is not None:
+            return self._columns_cache
+        return self._columns_from_partitions()
+
+    def _set_eagerframe_index(self, new_index):
+        """
+        Replace the current row labels with new labels, and synchronize partition labels lazily
+        """
+        if self._index_cache is None:
+            self._index_cache = ensure_index(new_index)
+        else:
+            new_index = self._validate_axis(new_index, self._index_cache)
+            self._index_cache = new_index
+        self.synchronize_axes(axis=0)
+
+    def _set_eagerframe_columns(self, new_columns):
+        """
+        Replace the current column labels with new labels,  and synchronize partition labels lazily
+        """
+        if self._columns_cache is None:
+            self._columns_cache = ensure_index(new_columns)
+        else:
+            new_columns = self._validate_axis(new_columns, self._columns_cache)
+            self._columns_cache = new_columns
+            if self._dtypes is not None:
+                self._dtypes.index = new_columns
+        self.synchronize_axes(axis=1)
+
+    columns = property(_get_eagerframe_columns, _set_eagerframe_columns)
+    index = property(_get_eagerframe_index, _set_eagerframe_index)
 
     @property
     def num_rows(self):
         '''Gets number of rows in frame.'''
-        row_count = 0
-        for first_col in self.partitions.T[0]:
-            if first_col.num_rows is None:
-                break
-            row_count += first_col.num_rows
+        row_count = len(self.index)
         return row_count
 
     @property
     def num_cols(self):
         '''Gets number of columns in frame.'''
-        col_count = 0
-        for first_row in self.partitions[0]:
-            if first_row.num_cols is None:
-                break
-            col_count += first_row.num_cols
+        col_count = len(self.columns)
         return col_count
 
     @property
@@ -142,22 +203,85 @@ class EagerFrame(BaseFrame):
         '''Get the axes of the frame.'''
         return [self.index, self.columns]
 
-    @property
-    def dtypes(self):
-        '''Get data types in frame.'''
-        return self.dtypes_from_partitions()
+    def _remove_empty_partitions(self):
+        """Remove empty partitions from `self.partitions` to avoid triggering excess computation."""
+        if not self.axes[0].size or not self.axes[1].size:
+            return
+        self.partitions = np.array(
+            [
+                [
+                    self.partitions[r][c]
+                    for c in range(len(self.partitions[r]))
+                    if c < len(self._partition_cols) and self._partition_cols[c] != 0
+                ]
+                for r in range(len(self.partitions))
+                if r < len(self._partition_rows) and self._partition_rows[r] != 0
+            ]
+        )
+        self._partition_cols_cache = [w for w in self._partition_cols if w != 0]
+        self._partition_rows_cache = [r for r in self._partition_rows if r != 0]
 
-    def index_from_partitions(self):
-        '''Get index from partitions.'''
-        index0 = self.partitions[0, 0].index
+    def synchronize_axes(self, axis=None):
+        """
+        Synchronize labels by applying the index object lazily.
+        Append `set_axis` function to func_queue of each partition
+
+        """
+        self._remove_empty_partitions()
+        if axis is None or axis == 0:
+            cumulative_row_len = np.cumsum([0] + self._partition_rows)
+        if axis is None or axis == 1:
+            cumulative_column_wid = np.cumsum([0] + self._partition_cols)
+
+        if axis is None:
+            def set_axis_func(df, index, columns):
+                return df.set_axis(index, axis="index", inplace=False).set_axis(
+                    columns, axis="columns", inplace=False)
+            self.partitions = np.array(
+                [[self.partitions[i][j].append_func(
+                    set_axis_func,
+                    index=self.index[slice(cumulative_row_len[i],
+                                           cumulative_row_len[i + 1])],
+                    columns=self.columns[slice(cumulative_column_wid[j],
+                                               cumulative_column_wid[j + 1])],)
+                  for j in range(len(self.partitions[i]))]
+                 for i in range(len(self.partitions))])
+
+        elif axis == 0:
+            def set_axis_func(df, index):
+                return df.set_axis(index, axis="index", inplace=False)
+            self.partitions = np.array(
+                [[self.partitions[i][j].append_func(
+                    set_axis_func,
+                    index=self.index[slice(cumulative_row_len[i],
+                                           cumulative_row_len[i + 1])],)
+                  for j in range(len(self.partitions[i]))]
+                 for i in range(len(self.partitions))])
+
+        elif axis == 1:
+            def set_axis_func(df, columns):
+                return df.set_axis(columns, axis="columns", inplace=False)
+            self.partitions = np.array(
+                [[self.partitions[i][j].append_func(
+                    set_axis_func,
+                    columns=self.columns[slice(cumulative_column_wid[j],
+                                               cumulative_column_wid[j + 1])],)
+                  for j in range(len(self.partitions[i]))]
+                 for i in range(len(self.partitions))])
+
+    def _index_from_partitions(self, partitions=None):
+        if partitions is None:
+            partitions = self.partitions
+        index0 = partitions[0, 0].index
         index = index0
-        for part in self.partitions[1:, 0]:
+        for part in partitions[1:, 0]:
             index = index.append(part.index)
         return index
 
     def set_index(self, new_labels):
         '''Set index of frame.'''
-        self.ops.set_index(self.partitions, new_labels)
+        output_partitions = self.ops.set_index(self.partitions, new_labels)
+        return EagerFrame(output_partitions)
 
     def setitem_elements(self, set_item_fn, *args):
         """
@@ -212,13 +336,15 @@ class EagerFrame(BaseFrame):
         self.ops.reset_coord(new_part)
         return EagerFrame(new_part)
 
-    def columns_from_partitions(self):
-        '''Get columns from partitions'''
-        column0 = self.partitions[0, 0].columns
+    def _columns_from_partitions(self, partitions=None):
+        """Get columns from partitions"""
+        if partitions is None:
+            partitions = self.partitions
+        column0 = partitions[0, 0].columns
         if column0 is None:  # Series has no column
             return None
         columns = column0
-        for _, part in enumerate(self.partitions[0, 1:]):
+        for _, part in enumerate(partitions[0, 1:]):
             columns = columns.append(part.columns)
         return columns
 
@@ -227,13 +353,13 @@ class EagerFrame(BaseFrame):
         index = self.partitions[0, 0].index
         return index.names if isinstance(index, pandas.MultiIndex) else index.name
 
-    def get_columns_with_pred_2(self, columns, lhs, op, rhs):
+    def get_columns_with_pred_2(self, columns, lhs, op, rhs, func=None):
         """
         This code is not enable. It implements an alternative of `get_columns_with_pred` by applying
         the predicate in parallel. We did not see any performance benefit from running in multi-threading
         environment.
         """
-        all_columns = self.columns_from_partitions()
+        all_columns = self._columns_from_partitions()
         if all_columns is None:
             column_ids = None
         else:
@@ -259,8 +385,10 @@ class EagerFrame(BaseFrame):
                 # N rows, 1 column (N >= 0)
                 row_ids += list(part.data.values[:, 0])
 
-        result = self.mask(row_ids, column_ids)
-        return result
+        output_eagerframe = self.view(rows_index_numeric=row_ids,
+                                      columns_index_numeric=column_ids,
+                                      func=func)
+        return output_eagerframe
 
     def apply_predicate(self, lhs, op, rhs):
         '''Apply a predicate op to frame.'''
@@ -274,9 +402,9 @@ class EagerFrame(BaseFrame):
                     rows_ids += list(df.index[np_array])
         return rows_ids
 
-    def get_columns(self, columns, lhs=None, op=None, rhs=None):
+    def get_columns(self, columns, lhs=None, op=None, rhs=None, func=None):
         '''Get columns by a predicate op.'''
-        all_columns = self.columns_from_partitions()
+        all_columns = self._columns_from_partitions()
         if all_columns is None:
             columns_ids = None
         else:
@@ -298,12 +426,14 @@ class EagerFrame(BaseFrame):
         if isinstance(columns_ids, list):
             columns_ids = np.array(columns_ids)
         # change from self.mask() to self.view() to keep the user_defined order
-        output_eagerframe = self.view(row_ids, columns_ids)
+        output_eagerframe = self.view(rows_index_numeric=row_ids,
+                                      columns_index_numeric=columns_ids,
+                                      func=func)
         return output_eagerframe
 
-    def get_rows(self, indices, indices_numeric=False):
+    def get_rows(self, indices, indices_numeric=False, func=None):
         '''Get rows by indices.'''
-        all_indices = self.index_from_partitions()
+        all_indices = self._index_from_partitions()
         indices_ids = []
         if indices_numeric:
             indices_ids = indices
@@ -315,7 +445,8 @@ class EagerFrame(BaseFrame):
         elif isinstance(indices, slice):
             indices_ids = indices
         # change from self.mask() to self.view() to keep the user_defined order
-        output_eagerframe = self.view(indices_ids, None)
+        output_eagerframe = self.view(rows_index_numeric=indices_ids, columns_index_numeric=None,
+                                      func=func)
         return output_eagerframe
 
     def dtypes_from_partitions(self):
@@ -349,7 +480,8 @@ class EagerFrame(BaseFrame):
                 df_row_split_points = self.get_axis_split_points(axis=0)
                 cond_row_split_points = cond.get_axis_split_points(axis=0)
                 if not np.array_equal(df_row_split_points, cond_row_split_points):
-                    cond = cond.axis_repartition(axis=0, by='split_pos', by_data=df_row_split_points)
+                    cond = cond.axis_repartition(axis=0, mblock_size=i_config.get_min_block_size(),
+                                                 by='split_pos', by_data=df_row_split_points)
             cond_partitions = cond.partitions
         if is_scalar:
             output_partitions = self.ops.injective_map(self.partitions, cond_partitions, other, func, is_scalar)
@@ -388,7 +520,13 @@ class EagerFrame(BaseFrame):
             for row_part in reduced_partitions:
                 for part in row_part:
                     part.coord = (part.coord[1], part.coord[0])
-        return EagerFrame(reduced_partitions)
+         # compute new axes information
+        new_axes, new_axes_lengths = [0, 0], [0, 0]
+        new_axes[axis ^ 1] = ["__unsqueeze_series__"]
+        new_axes[axis] = self.axes[axis ^ 1]
+        new_axes_lengths[axis ^ 1] = [1]
+        new_axes_lengths[axis] = self._partition_axes[axis ^ 1]
+        return EagerFrame(reduced_partitions, *new_axes, *new_axes_lengths)
 
     def repartition(self, output_shape, mblock_size):
         '''Repartition the frame according to output_shape.'''
@@ -397,7 +535,11 @@ class EagerFrame(BaseFrame):
 
     def get_axis_split_points(self, axis):
         '''Get axis split points of the frame's partitions.'''
-        return self.ops.get_axis_split_points(self.partitions, axis)
+        axis_lens = self._partition_rows if axis == 0 else self._partition_cols
+        axis_lens = [0] + axis_lens
+        axis_lens = np.array(axis_lens)
+        split_points = axis_lens.cumsum()
+        return split_points
 
     def get_axis_repart_range(self, axis, by, by_data):
         '''Get axis repartition range.'''
@@ -411,12 +553,10 @@ class EagerFrame(BaseFrame):
 
     def to_pandas(self, force_series=False):
         '''Convert EagerFrame to pandas frame.'''
-        self.ops.flush(self.partitions)
         return self.ops.to_pandas(self.partitions, force_series)
 
     def values(self):
         '''Get values of frame.'''
-        self.ops.flush(self.partitions)
         return self.ops.values(self.partitions)
 
     def flush(self):
@@ -431,15 +571,13 @@ class EagerFrame(BaseFrame):
         '''Save frame to csv file.'''
         return self.ops.to_csv(self.partitions, path_or_buf, **kwargs)
 
-    def get_column_widths_of_partitions(self):
+    def _get_column_widths_of_partitions(self):
         '''Get column widths of frame's partitions.'''
-        self.ops.flush(self.partitions)
         col_widths = [part.num_cols for part in self.partitions[0]]
         return col_widths
 
-    def get_row_lengths_of_partitions(self):
+    def _get_row_lengths_of_partitions(self):
         '''Get row lengths of frame's partitions.'''
-        self.ops.flush(self.partitions)
         row_lengths = [part.num_rows for part in self.partitions[:, 0]]
         return row_lengths
 
@@ -517,9 +655,9 @@ class EagerFrame(BaseFrame):
         if has_negative or not are_indices_sorted:
             global_indices = np.sort(global_indices)
         if axis == 0:
-            bins = np.array(self.get_row_lengths_of_partitions())
+            bins = np.array(self._get_row_lengths_of_partitions())
         else:
-            bins = np.array(self.get_column_widths_of_partitions())
+            bins = np.array(self._get_column_widths_of_partitions())
         cumulative_len = np.append(bins[:-1].cumsum(), np.iinfo(bins.dtype).max)
         partition_ids = np.digitize(global_indices, cumulative_len)
         each_partition_count = np.array([(partition_ids == i).sum() for i in range(len(cumulative_len))]).cumsum()
@@ -587,7 +725,7 @@ class EagerFrame(BaseFrame):
         if np.array_equal(rows_index, []) or np.array_equal(columns_index, []):
             # edge case: if we are removing all partitions, we need to create a new empty partition
             if keep_index:
-                return EagerFrame(self.partitions)  # Keep the attributes for old partitions
+                return EagerFrame(self.partitions, self.index, self.columns)
             part = self.default_partition.put(data=pandas.DataFrame(), coord=(0, 0))
             arr = np.array([[part]])
             return EagerFrame(arr)
@@ -745,8 +883,12 @@ class EagerFrame(BaseFrame):
         """
         partition_shape = self.partitions.shape
         if axis == 0:
-            column_df_parts = [part.get() for part in self.partitions[:, indice]]
-            column_df_lens = [len(df.index) for df in column_df_parts]
+            if self.ops == mp_ops:
+                column_df_parts = self.ops.get_select_partitions(self.partitions, indice, axis)
+            else:
+                column_df_parts = self.partitions[:, indice]
+            column_df_parts = [part.get() for part in column_df_parts]
+            column_df_lens = self._partition_rows
             column_df = func_concat(column_df_parts, axis=axis)
             len_rows = len(column_df.index)
             output_df = func(column_df)
@@ -761,8 +903,12 @@ class EagerFrame(BaseFrame):
                 self.partitions[i, indice] = self.default_partition.put(data=data, coord=(i, indice))
                 pos += column_df_lens[i]
         else:
-            row_df_parts = [part.get() for part in self.partitions[indice, :]]
-            row_df_lens = [len(df.columns) for df in row_df_parts]
+            if self.ops == mp_ops:
+                row_df_parts = self.ops.get_select_partitions(self.partitions, indice, axis)
+            else:
+                row_df_parts = self.partitions[indice, :]
+            row_df_parts = [part.get() for part in row_df_parts]
+            row_df_lens = self._partition_cols
             row_df = func_concat(row_df_parts, axis=axis)
             len_cols = len(row_df.columns)
             output_df = func(row_df)
@@ -809,11 +955,17 @@ class EagerFrame(BaseFrame):
             new_index = self.index if axis == 1 else None
         if new_columns is None:
             new_columns = self.columns if axis == 0 else None
-        return EagerFrame(self.partitions)
+        lengths_objs = {
+            axis: [len(labels)]
+                  if not keep_reminding
+                  else [self._partition_rows, self._partition_cols][axis],
+            axis ^ 1: [self._partition_rows, self._partition_cols][axis ^ 1],
+            }
+        return EagerFrame(self.partitions, new_index, new_columns, lengths_objs[0], lengths_objs[1])
 
-    def to_labels(self, column_list: list):
+    def to_labels(self, column_list: list, func=None):
         '''Get columns specified by column_list as index labels.'''
-        extracted_columns = self.get_columns(column_list).to_pandas()
+        extracted_columns = self.get_columns(column_list, func=func).to_pandas()
 
         if extracted_columns.columns.to_list() != column_list:
             extracted_columns = extracted_columns.reindex(columns=column_list)
@@ -830,109 +982,150 @@ class EagerFrame(BaseFrame):
         output_partitions = self.ops.squeeze(self.partitions, axis=axis)
         return EagerFrame(output_partitions)
 
-    def view(self, rows_index, columns_index):
-        '''Get view of frame specified by rows_index and columns_index.'''
+    def view(self, rows_index=None, columns_index=None, rows_index_numeric=None,
+             columns_index_numeric=None, func=None):
+        '''lazily get view of frame specified by rows_index and columns_index.'''
         indexers = []
-        rows_index_sorted, columns_index_sorted = None, None
-        for axis, indexer in enumerate((rows_index, columns_index)):
-            if is_range_like(indexer):
-                if indexer.step == 1 and len(indexer) == len(self.axes[axis]):
-                    indexer = None
-                elif indexer is not None and not isinstance(indexer, pandas.RangeIndex):
-                    indexer = pandas.RangeIndex(
-                        indexer.start, indexer.stop, indexer.step
-                    )
+        if rows_index is not None:
+            rows_index_numeric = self.index.get_indexer_for(rows_index)
+        if columns_index is not None:
+            columns_index_numeric = self.columns.get_indexer_for(columns_index)
+        rows_index_numeric_sorted, columns_index_numeric_sorted = None, None
+        for axis, idx in enumerate((rows_index_numeric, columns_index_numeric)):
+            if is_range_like(idx):
+                if idx.step == 1 and len(idx) == len(self.axes[axis]):
+                    idx = None
+                elif idx is not None and not isinstance(idx, pandas.RangeIndex):
+                    idx = pandas.RangeIndex(idx.start, idx.stop, idx.step)
             else:
-                if not(indexer is None or is_list_like(indexer)):
-                    raise TypeError(f"Mask takes only list-like numeric indexers, received: {type(indexer)}")
-            indexers.append(indexer)
+                if not(idx is None or is_list_like(idx)):
+                    raise TypeError(f"View takes list-like numeric indexers, but received: {type(idx)}")
+            indexers.append(idx)
         row_positions, col_positions = indexers
-        if col_positions is None and row_positions is None:
+        if (col_positions is None and row_positions is None
+                and rows_index is None and columns_index is None):
             return self.copy()
-        partition_row_lengths = self.get_row_lengths_of_partitions()
-        partition_column_lengths = self.get_column_widths_of_partitions()
+        partition_row_lengths = self._get_row_lengths_of_partitions()
+        partition_column_lengths = self._get_column_widths_of_partitions()
 
         row_ascending = True
-        def get_row_partitions_list(row_positions, rows_index):
-            rows_index_sorted = None
-            rows_index_argsort_argsort = None
+        def get_row_partitions_list(row_positions, rows_index_numeric):
+            rows_index_numeric_sorted = None
+            rows_index_numeric_argsort_argsort = None
             row_partitions_list = None
             row_ascending = True
-            if is_range_like(row_positions) and row_positions.step > 0 or not row_positions.size:
-                rows_index_sorted = row_positions
+            if is_range_like(row_positions) and row_positions.step > 0 or len(row_positions) == 0:
+                rows_index_numeric_sorted = row_positions
             else:
-                if row_positions.size >= 1 and not np.all(row_positions[1:] > row_positions[:-1]):
-                    rows_index_argsort = row_positions.argsort()
-                    rows_index_sorted = row_positions[rows_index_argsort]
-                    rows_index_argsort_argsort = rows_index_argsort.argsort()
+                if len(row_positions) >= 1 and not np.all(row_positions[1:] > row_positions[:-1]):
+                    rows_index_numeric_argsort = row_positions.argsort()
+                    rows_index_numeric_sorted = row_positions[rows_index_numeric_argsort]
+                    rows_index_numeric_argsort_argsort = rows_index_numeric_argsort.argsort()
                     row_ascending = False
                 else:
-                    rows_index_sorted = row_positions
+                    rows_index_numeric_sorted = row_positions
 
-            if not rows_index.size:
-                row_partitions_list = self.get_dict_of_internal_index(partition_row_lengths, rows_index_sorted)
+            if len(rows_index_numeric) == 0:
+                row_partitions_list = self.get_dict_of_internal_index(partition_row_lengths, rows_index_numeric_sorted)
             else:
-                row_partitions_list = self.get_dict_of_partition_index(0, rows_index_sorted, are_indices_sorted=True)
-            return rows_index_sorted, rows_index_argsort_argsort, row_partitions_list, row_ascending
+                row_partitions_list = self.get_dict_of_partition_index(0, rows_index_numeric_sorted,
+                                                                       are_indices_sorted=True)
+            new_row_lengths = [len(range(*sub_indexer.indices(partition_row_lengths[sub_idx]))
+                                   if isinstance(sub_indexer, slice) else sub_indexer)
+                               for sub_idx, sub_indexer in row_partitions_list.items()]
+            new_index = self.index[
+                slice(row_positions.start, row_positions.stop, row_positions.step)
+                if is_range_like(row_positions) and row_positions.step > 0
+                else rows_index_numeric_sorted
+            ]
+            return (rows_index_numeric_sorted, rows_index_numeric_argsort_argsort,
+                    row_partitions_list, row_ascending, new_row_lengths, new_index)
 
         if row_positions is not None:
-            rows_get_out = get_row_partitions_list(row_positions, rows_index)
-            rows_index_sorted = rows_get_out[0]
-            rows_index_argsort_argsort = rows_get_out[1]
+            rows_get_out = get_row_partitions_list(row_positions, rows_index_numeric)
+            rows_index_numeric_sorted = rows_get_out[0]
+            rows_index_numeric_argsort_argsort = rows_get_out[1]
             row_partitions_list = rows_get_out[2]
             row_ascending = rows_get_out[3]
+            new_row_lengths = rows_get_out[4]
+            new_index = rows_get_out[5]
         else:
             row_partitions_list = {
                 i: slice(None) for i in range(len(partition_row_lengths))
             }
+            new_row_lengths = partition_row_lengths
+            new_index = self.index
 
         col_ascending = True
-        def get_cols_partitions_list(col_positions, columns_index):
-            columns_index_sorted = None
-            columns_index_argsort_argsort = None
+        def get_cols_partitions_list(col_positions, columns_index_numeric):
+            columns_index_numeric_sorted = None
+            columns_index_numeric_argsort_argsort = None
             col_partitions_list = None
             col_ascending = True
-            if is_range_like(col_positions) and col_positions.step > 0 or not col_positions.size:
-                columns_index_sorted = col_positions
+            if is_range_like(col_positions) and col_positions.step > 0 or len(col_positions) == 0:
+                columns_index_numeric_sorted = col_positions
             else:
-                if col_positions.size >= 1 and not np.all(col_positions[1:] > col_positions[:-1]):
-                    columns_index_argsort = col_positions.argsort()
-                    columns_index_sorted = col_positions[columns_index_argsort]
-                    columns_index_argsort_argsort = columns_index_argsort.argsort()
+                if len(col_positions) >= 1 and not np.all(col_positions[1:] > col_positions[:-1]):
+                    columns_index_numeric_argsort = col_positions.argsort()
+                    columns_index_numeric_sorted = col_positions[columns_index_numeric_argsort]
+                    columns_index_numeric_argsort_argsort = columns_index_numeric_argsort.argsort()
                     col_ascending = False
                 else:
-                    columns_index_sorted = col_positions
-
-            if not columns_index.size:
-                col_partitions_list = self.get_dict_of_internal_index(partition_column_lengths, columns_index_sorted)
+                    columns_index_numeric_sorted = col_positions
+            if len(columns_index_numeric) == 0:
+                col_partitions_list = self.get_dict_of_internal_index(partition_column_lengths,
+                                                                      columns_index_numeric_sorted)
             else:
-                col_partitions_list = self.get_dict_of_partition_index(1,
-                                                                       columns_index_sorted,
+                col_partitions_list = self.get_dict_of_partition_index(1, columns_index_numeric_sorted,
                                                                        are_indices_sorted=True)
-            return columns_index_sorted, columns_index_argsort_argsort, col_partitions_list, col_ascending
+
+            new_col_widths = [len(range(*sub_indexer.indices(partition_column_lengths[sub_idx]))
+                                  if isinstance(sub_indexer, slice) else sub_indexer)
+                              for sub_idx, sub_indexer in col_partitions_list.items()]
+            if is_range_like(col_positions) and col_positions.step > 0:
+                col_idx = slice(col_positions.start, col_positions.stop, col_positions.step)
+            else:
+                col_idx = columns_index_numeric_sorted
+            new_columns = self.columns[col_idx]
+            if self._dtypes is not None:
+                new_dtypes = self.dtypes.iloc[col_idx]
+            else:
+                new_dtypes = None
+            return (columns_index_numeric_sorted, columns_index_numeric_argsort_argsort,
+                    col_partitions_list, col_ascending, new_col_widths, new_columns, new_dtypes)
 
         if col_positions is not None:
-            cols_get_out = get_cols_partitions_list(col_positions, columns_index)
-            columns_index_sorted = cols_get_out[0]
-            columns_index_argsort_argsort = cols_get_out[1]
+            cols_get_out = get_cols_partitions_list(col_positions, columns_index_numeric)
+            columns_index_numeric_sorted = cols_get_out[0]
+            columns_index_numeric_argsort_argsort = cols_get_out[1]
             col_partitions_list = cols_get_out[2]
             col_ascending = cols_get_out[3]
+            new_col_widths = cols_get_out[4]
+            new_columns = cols_get_out[5]
+            new_dtypes = cols_get_out[6]
         else:
             col_partitions_list = {
                 i: slice(None) for i in range(len(partition_column_lengths))
             }
 
-        view_parts = self.ops.mask(self.partitions, rows_index_sorted, columns_index_sorted, row_partitions_list,
-                                   col_partitions_list)
+            new_col_widths = partition_column_lengths
+            new_columns = self.columns
+            if self._dtypes is not None:
+                new_dtypes = self.dtypes
+            else:
+                new_dtypes = None
+        view_parts = self.ops.mask(self.partitions, rows_index_numeric_sorted,
+                                   columns_index_numeric_sorted, row_partitions_list,
+                                   col_partitions_list, func=func)
         if not row_ascending:
             view_parts = self.ops.reduce(view_parts,
-                                         reduce_func=lambda df: df.iloc[rows_index_argsort_argsort],
+                                         reduce_func=lambda df: df.iloc[rows_index_numeric_argsort_argsort],
                                          axis=0)
         if not col_ascending:
             view_parts = self.ops.reduce(view_parts,
-                                         reduce_func=lambda df: df.iloc[:, columns_index_argsort_argsort],
+                                         reduce_func=lambda df: df.iloc[:, columns_index_numeric_argsort_argsort],
                                          axis=1)
-        return EagerFrame(view_parts)
+        return EagerFrame(view_parts, new_index, new_columns, new_row_lengths, new_col_widths, new_dtypes)
 
     def transpose(self):
         '''Perform transpose operation on EagerFrame.'''
@@ -951,6 +1144,7 @@ class EagerFrame(BaseFrame):
         if self.partitions.shape != new_partitions.shape:
             raise ValueError("Cannot update backend partitions with different shape")
         self.ops.update(self.partitions, new_partitions)
+        return EagerFrame(new_partitions, new_dataframe.index, new_dataframe.columns)
 
     def copy(self, deep=True):
         '''Perform copy operation on EagerFrame.'''
@@ -964,7 +1158,7 @@ class EagerFrame(BaseFrame):
             ):
                 self.ops.flush(self.partitions)
             output_partitions = copy_module.deepcopy(self.partitions)
-        return EagerFrame(output_partitions)
+        return EagerFrame(output_partitions, self._get_eagerframe_index(), self._get_eagerframe_columns())
 
     @property
     def series_like(self):
@@ -1119,7 +1313,7 @@ class EagerFrame(BaseFrame):
             reindexed_base_partitions = base_frame.partitions
 
         base_lengths = get_axis_lengths(reindexed_base_partitions, axis)
-        others_lengths = [o.axes_lengths[axis] for o in other_frames]
+        others_lengths = [o._partition_axes[axis] for o in other_frames]
         # Check if we need to reindex or repartition other frames
         need_reindex_others = [
             not o.axes[axis].equals(joined_index) for o in other_frames

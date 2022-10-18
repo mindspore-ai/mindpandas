@@ -35,10 +35,9 @@ def _remote_apply_func(data, func, *args, **kwargs):
 @yr.invoke(return_nums=2)
 def _remote_apply_queue(data, func_id_list, **kwargs):
     """Execute all functions in data's function queue."""
-    func_queue = yr.get([*func_id_list])
     output = data
-    for func in func_queue:
-        output = func(output, **kwargs)
+    for func, args, kwargs in func_id_list:
+        output = func(output, *args, **kwargs)
     output_data, output_meta = partition.process_raw_data(output)
     return output_data, output_meta
 

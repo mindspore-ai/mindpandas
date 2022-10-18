@@ -56,19 +56,19 @@ class DataFrame:
 
     @property
     def index(self):
-        return self.backend_frame.index_from_partitions()
+        return self.backend_frame.index
 
     @index.setter
     def index(self, new_index):
-        self.set_axis(labels=new_index, axis=0, inplace=True)
+        self.backend_frame.index = new_index
 
     @property
     def columns(self):
-        return self.backend_frame.columns_from_partitions()
+        return self.backend_frame.columns
 
     @columns.setter
     def columns(self, new_columns):
-        self.set_axis(labels=new_columns, axis=1, inplace=True)
+        self.backend_frame.columns = new_columns
 
     def _validate_set_axis(self, axis, new_labels):
         """Check if the parameter is valid"""
@@ -92,7 +92,11 @@ class DataFrame:
 
     def set_axis(self, labels, axis=0, inplace=False):
         self._validate_set_axis(axis=axis, new_labels=labels)
-        return self._qc.set_axis(input_dataframe=self, labels=labels, axis=axis, inplace=inplace)
+        output_dataframe = self._qc.set_axis(input_dataframe=self, labels=labels, axis=axis, inplace=inplace)
+        if inplace:
+            self.backend_frame = output_dataframe.backend_frame
+            return None
+        return output_dataframe
 
     @property
     def values(self):
@@ -563,27 +567,33 @@ class DataFrame:
         if (axis is not None and (columns is not None or index is not None)):
             raise TypeError("Cannot specify both 'axis' and any of 'index' or 'columns'")
 
-        if (columns is not None or index is not None):
-            if columns is not None:
-                output_dataframe = self._qc.rename(input_dataframe=self, mapper=mapper, index=None, columns=columns,
-                                                   axis=axis,
-                                                   copy=copy, inplace=inplace, level=level, errors=errors)
-                if index is not None:
-                    output_dataframe = self._qc.rename(input_dataframe=output_dataframe, mapper=mapper, index=index,
-                                                       columns=None, axis=axis,
-                                                       copy=copy, inplace=inplace, level=level, errors=errors)
-                    return output_dataframe
+        args = locals()
+        kwargs = {k: v for k, v in args.items() if v is not None and k != "self"}
+        kwargs["inplace"] = False
 
-            if index is not None:
-                output_dataframe = self._qc.rename(input_dataframe=self, mapper=mapper, index=index, columns=None,
-                                                   axis=axis,
-                                                   copy=copy, inplace=inplace, level=level, errors=errors)
+        if columns is not None or (mapper is not None and axis == 1):
+            new_columns = pandas.DataFrame(columns=self.columns).rename(**kwargs).columns
         else:
-            output_dataframe = self._qc.rename(input_dataframe=self, mapper=mapper, index=index, columns=columns,
-                                               axis=axis,
-                                               copy=copy, inplace=inplace, level=level, errors=errors)
+            new_columns = None
 
-        return output_dataframe
+        if index is not None or (mapper is not None and axis == 0):
+            new_index = pandas.DataFrame(index=self.index).rename(**kwargs).index
+        else:
+            new_index = None
+
+        if inplace:
+            obj = self
+        else:
+            obj = self.copy()
+
+        if new_index is not None:
+            obj.backend_frame.index = new_index
+        if new_columns is not None:
+            obj.backend_frame.columns = new_columns
+
+        if not inplace:
+            return obj
+        return None
 
     def isna(self):
         output_dataframe = self._qc.isna(input_dataframe=self)
@@ -1354,7 +1364,11 @@ class DataFrame:
 
     def reset_index(self, level=None, drop=False, inplace=False, col_level=0, col_fill=''):
         inplace = validate_bool_kwarg(inplace, "inplace")
-        return self._qc.reset_index(self, level, drop, inplace, col_level, col_fill)
+        output_dataframe = self._qc.reset_index(self, level, drop, inplace, col_level, col_fill)
+        if inplace:
+            self.backend_frame = output_dataframe.backend_frame
+            return self
+        return output_dataframe
 
     def applymap(self, func, na_action=None, **kwargs):
         """Apply a function to a Dataframe element-wise.
@@ -1499,6 +1513,7 @@ class DataFrame:
         # for simple case of mpd.Series, call quick version before checking complex cases
         if isinstance(value, mpd.Series):
             self._set_item(0, key, value)
+            return
         if is_list_like(value):
             if isinstance(value, (pandas.DataFrame, mpd.DataFrame)):
                 value = value[value.columns[0]].values
@@ -1630,7 +1645,7 @@ class DataFrame:
             return self
         return self.drop(
             columns=[
-                i for i in self.dtypes.index if not is_numeric_dtype(self.dtypes[i])
+                i for i in self.backend_frame.dtypes.index if not is_numeric_dtype(self.backend_frame.dtypes[i])
             ]
         )
 

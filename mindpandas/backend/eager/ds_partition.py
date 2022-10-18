@@ -16,7 +16,9 @@
 Module to provide datasystem partition class for multiprocess backend.
 """
 import pandas
+from pandas.api.types import is_scalar
 
+from mindpandas.index import compute_sliced_len
 from .eager_backend import get_scheduler
 from .eager_backend import remote_functions as rf
 
@@ -47,10 +49,10 @@ class DSPartition():
         self.valid = meta_data.get('valid', NA())
         self.dtypes = meta_data.get('dtypes', NA())
 
-    def append_func(self, func_id):
+    def append_func(self, func, *args, **kwargs):
         '''Appends function to function queue.'''
         output_partition = DSPartition.put(data_id=self.data_id, meta_id=self.meta_data_id, coord=self.coord)
-        output_partition.func_queue = self.func_queue + [func_id]
+        output_partition.func_queue = self.func_queue + [(func, args, kwargs)]
         return output_partition
 
     def apply_queue(self, pass_coord=False, **kwargs):
@@ -76,13 +78,20 @@ class DSPartition():
 
     def apply(self, apply_func_id, *args, **kwargs):
         '''Apply function to partitions.'''
-        self._check_apply_queue_internal()
         future_id, meta_data_id = get_scheduler().remote(rf()._remote_apply_func,
                                                          self.data_id, apply_func_id,
                                                          *args,
                                                          **kwargs)
         output_partition = DSPartition.put(data_id=future_id, meta_id=meta_data_id, coord=self.coord)
         return output_partition
+
+    def get_updated_partition(self):
+        self._check_apply_queue_internal()
+        return self
+
+    def wait(self):
+        self._check_apply_queue_internal()
+        get_scheduler().wait_computation_finished(self.data_id)
 
     def get(self):
         '''Get partition data.'''
@@ -208,27 +217,41 @@ class DSPartition():
             and len(index) == axis_length
         )
 
-    def mask(self, row_indices, column_indices, is_series=False):
+    def mask(self, row_indices, column_indices, is_series=False, func=None):
         '''Return mask of partitions based on provided indices.'''
-        self._check_apply_queue_internal()
+        row_indices = [row_indices] if is_scalar(row_indices) else row_indices
+        column_indices = [column_indices] if is_scalar(column_indices) else column_indices
         new_row_indices = row_indices
         new_column_indices = column_indices
         if self.is_full_axis_mask(row_indices, self.num_rows):
-            new_row_indices = None
+            new_row_indices = slice(None)
         elif self.is_full_axis_mask(column_indices, self.num_cols):
-            new_column_indices = None
-        future_id, meta_data_id = get_scheduler().remote(rf()._remote_mask,
-                                                         self.data_id,
-                                                         new_row_indices,
-                                                         new_column_indices,
-                                                         is_series)
-        output_partition = DSPartition.put(data_id=future_id, meta_id=meta_data_id, coord=self.coord)
+            new_column_indices = slice(None)
+        output_partition = self.append_func(func, new_row_indices, new_column_indices, is_series=is_series)
+        def try_recompute_cache(indices, previous_cache):
+            if not isinstance(indices, slice):
+                return len(indices)
+            if not isinstance(previous_cache, int):
+                return None
+            return compute_sliced_len(indices, previous_cache)
+        output_partition.container_type = self.container_type
+        output_partition.num_rows = try_recompute_cache(row_indices, self.num_rows)
+        output_partition.num_cols = try_recompute_cache(column_indices, self.num_cols)
+        output_partition.index = self.index[row_indices]
+        output_partition.columns = self.columns[column_indices]
+        output_partition.valid = self.valid
         return output_partition
+
+    def set_index_func(self, data, labels):
+        data.index = labels
+        return data
 
     def set_index(self, labels):
         '''Set index of partitions with labels.'''
-        self._check_apply_queue_internal()
-        self.data_id, self.meta_data_id = get_scheduler().remote(rf()._remote_set_index, self.data_id, labels)
+        output_partition = self.append_func(self.set_index_func, labels)
+        output_partition = output_partition.apply_queue()
+        return output_partition
+
 
     def _get_meta_data(self):
         '''Get partitions meta data.'''
