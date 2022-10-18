@@ -50,6 +50,9 @@ def test_sum():
         return module.DataFrame({"C1": ["a", "b"], "C2": pd.Series([3, 4], dtype='float128'),
                                  "C3": pd.Series([3, 4], dtype='int64'), "C4": [3, 4.0]})
 
+    def creat_issue_df(module):
+        return module.DataFrame([["a", 1]])
+
     def test_sum_default(df):
         df = df.sum()
         return df
@@ -101,3 +104,4 @@ def test_sum():
     TESTUTIL.compare(test_sum_numeric_only_is_true_axis1, create_fn=create_df_non_numeric)
     TESTUTIL.compare(test_sum_numeric_only_is_true_axis1, create_fn=create_df_non_numeric1)
     TESTUTIL.compare(test_sum_numeric_only_is_true_axis1, create_fn=create_df_non_numeric2)
+    TESTUTIL.compare(test_sum_numeric_only_is_true_axis1, create_fn=creat_issue_df)

@@ -744,7 +744,7 @@ class QueryCompiler:
         # The result dtype should be: `float32`
         # However, since the C1 is non-numeric value dtype and it auto-converts to `float64` in map func, our
         # result dtype will be calculated as `float64`.
-        if isinstance(input_dataframe, mpd.DataFrame) and input_dataframe.backend_frame.num_rows > 1:
+        if isinstance(input_dataframe, mpd.DataFrame) and input_dataframe.backend_frame.num_rows >= 1:
             dataframe = input_dataframe.head(2).to_pandas()
             final_dtype = dataframe.sum(axis=axis, skipna=skipna, numeric_only=numeric_only,
                                         min_count=min_count).dtype
