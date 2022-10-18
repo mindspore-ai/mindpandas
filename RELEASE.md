@@ -16,6 +16,6 @@ MindPandas is a data analysis framework that is compatible with the Pandas inter
 
 Thanks goes to these wonderful people:
 
-caiyimeng, chenyue li, dessyang, liyuxia, lichen_101010, Martin Yang, panfengfeng, RobinGrosman, shenghong96, Tom Chen, wangyue, xiaohanzhang, xutianyu, yanghaitao, youtianming
+caiyimeng, chenyue li, dessyang, liyuxia, lichen_101010, Martin Yang, panfengfeng, RobinGrosman, shenghong96, Tom Chen, wangyue, weisun092, xiaohanzhang, xutianyu, yanghaitao, youtianming
 
 Contributions of any kind are welcome!
