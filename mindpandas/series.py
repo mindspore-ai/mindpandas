@@ -462,14 +462,17 @@ class Series:
                                                axis,
                                                sort=False)
             if isinstance(other, Series):
-                return self._qc.series_comp_op(self,
-                                               func,
-                                               other,
-                                               False,
-                                               level,
-                                               fill_value,
-                                               axis,
-                                               sort=False)
+                result = self._qc.series_comp_op(self,
+                                                 func,
+                                                 other,
+                                                 False,
+                                                 level,
+                                                 fill_value,
+                                                 axis,
+                                                 sort=False)
+                if 'mixed' in result.index.inferred_type:
+                    return result
+                return result.sort_index()
             if is_scalar(other):
                 return self._qc.series_comp_op(self,
                                                func,
@@ -859,7 +862,10 @@ class Series:
                 return self._qc.math_op(self, op, other, axis, level, fill_value)
 
             if isinstance(other, (mpd.Series, pandas.Series)):
-                return self._qc.math_op(self, op, other, axis, level, fill_value)
+                result = self._qc.math_op(self, op, other, axis, level, fill_value)
+                if 'mixed' in result.index.inferred_type:
+                    return result
+                return result.sort_index()
 
         # Other situations use pandas for better performance
         return self._qc.default_to_pandas(df=self,

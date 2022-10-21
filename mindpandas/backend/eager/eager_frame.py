@@ -1157,19 +1157,133 @@ class EagerFrame(BaseFrame):
         )
         return new_frames[0], new_frames[1:], joined_index
 
-    def injective_map_with_join(self, func, right_frame, join_type="outer"):
+    def injective_map_with_join(self, func, right_frame):
         """
         Perform operations which need to join frames
         """
-        # If self.index equals to right_frame.index, skip copartition and repartition
+        # if two frames have same index, skip copartiton.
         if self.index.equals(right_frame.index):
             left_parts = self.partitions
             right_parts = right_frame.partitions
-        else:
-            left_parts, right_parts, _ = self._copartition(0, right_frame, join_type, sort=False)
+            new_frame = self.ops.injective_map(left_parts, None, right_parts, func, False)
+            return EagerFrame(new_frame)
+
+        # if one of dataframes has index which is mixed type, use original join method
+        if (
+                'mixed' in self.index.inferred_type or
+                'mixed' in right_frame.index.inferred_type or
+                self.index.inferred_type != right_frame.index.inferred_type
+            ):
+            left_parts, right_parts, _ = self._copartition(0, right_frame, "outer", sort=False)
             right_parts = right_parts[0]
-        new_frame = self.ops.injective_map(left_parts, None, right_parts, func, False)
+            new_frame = self.ops.injective_map(left_parts, None, right_parts, func, False)
+            return EagerFrame(new_frame)
+
+        # choose different methods to copartition based on if both frames have range_like index
+        # if one of the dataframes has non range index
+        row_parts_num = self.partitions.shape[0]
+        if  not is_range_like(self.index) or not is_range_like(right_frame.index):
+            is_range = False
+            left_output_partitions = self.ops.copartition(self.partitions, is_range,
+                                                          num_output=row_parts_num)
+            right_output_partitions = self.ops.copartition(right_frame.partitions, is_range,
+                                                           num_output=row_parts_num)
+            new_frame = self.ops.injective_map(left_output_partitions, None, right_output_partitions, func, False)
+
+        # if both left index and right index are range_like index
+        else:
+            is_range = True
+            left_index = self.index
+            right_index = right_frame.index
+            # if range index step is negative, convert it to positive firstly
+            if left_index.step < 0:
+                left_index = slice(left_index.stop+left_index.step, left_index.start+left_index.step, -left_index.step)
+            if right_index.step < 0:
+                right_index = slice(right_index.stop+right_index.ste,
+                                    right_index.start+right_index.step, -right_index.step)
+
+            min_index = max(left_index.start, right_index.start)
+            max_index = min(left_index.stop, right_index.stop)
+
+            common_index = max_index - min_index
+            if row_parts_num < 3:
+                index_gap = common_index//(min(left_index.step, right_index.step)*row_parts_num)
+            else:
+                index_gap = common_index//(min(left_index.step, right_index.step)*(row_parts_num-2))
+            # no common index, skip copartition
+            if min_index >= max_index:
+                left_output_partitions = self.partitions
+                right_output_partitions = right_frame.partitions
+                new_frame = self.ops.injective_map(left_output_partitions, None, right_output_partitions, func, False)
+            else:
+                def range_index_included(large_index):
+                    small_index_slices = []
+                    large_index_slices = []
+
+                    # copartition small index
+                    small_index_slices.append(None)
+                    if row_parts_num > 3:
+                        for i in range(row_parts_num-3):
+                            small_index_slices.append(slice(index_gap*i+min_index, min_index+index_gap*(i+1)-1))
+                        small_index_slices.append(slice(index_gap*(i+1)+min_index, max_index))
+                    else:
+                        small_index_slices.append(slice(min_index, max_index))
+                    small_index_slices.append(None)
+
+                    # copartition large index
+                    large_index_slices.append(slice(large_index.start, min_index-1))
+                    if row_parts_num > 3:
+                        for i in range(row_parts_num-3):
+                            large_index_slices.append(slice(index_gap*i+min_index, min_index+index_gap*(i+1)-1))
+                        large_index_slices.append(slice(index_gap*(i+1)+min_index, max_index))
+                    else:
+                        large_index_slices.append(slice(min_index, max_index))
+                    large_index_slices.append(slice(max_index+1, large_index.stop))
+                    return small_index_slices, large_index_slices
+
+                def range_index_intersected(down_index, up_index):
+                    down_index_slices = []
+                    up_index_slices = []
+                    down_index_slices.append(None)
+                    #copartiton  the "down" index
+                    if row_parts_num > 3:
+                        for i in range(row_parts_num-3):
+                            down_index_slices.append(slice(index_gap*i+min_index, min_index+index_gap*(i+1)-1))
+                        down_index_slices.append(slice(index_gap*(i+1)+min_index, max_index))
+                    else:
+                        down_index_slices.append(slice(min_index, max_index))
+                    down_index_slices.append(slice(max_index+1, down_index.stop))
+                    # copartition the "up" index
+                    up_index_slices.append(slice(up_index.start, min_index-1))
+                    if row_parts_num > 3:
+                        for i in range(row_parts_num-3):
+                            up_index_slices.append(slice(index_gap*i+min_index, min_index+index_gap*(i+1)-1))
+                        up_index_slices.append(slice(index_gap*(i+1)+min_index, max_index))
+                    else:
+                        up_index_slices.append(slice(min_index, max_index))
+                    up_index_slices.append(None)
+                    return down_index_slices, up_index_slices
+
+                #left index is included by right index
+                if min_index == left_index.start and max_index == left_index.stop:
+                    left_index_slices, right_index_slices = range_index_included(right_index)
+                #right index is included by left index
+                elif min_index == right_index.start and max_index == right_index.stop:
+                    right_index_slices, left_index_slices = range_index_included(left_index)
+                # left index and right index have common index, and left index is the down index
+                elif min_index == left_index.start and max_index == right_index.stop:
+                    left_index_slices, right_index_slices = range_index_intersected(left_index, right_index)
+                # left index and right index have common index, and right index is the down index
+                elif min_index == right_index.start and max_index == left_index.stop:
+                    right_index_slices, left_index_slices = range_index_intersected(right_index, left_index)
+                left_output_partitions = self.ops.copartition(self.partitions,
+                                                              is_range, index_slices=left_index_slices)
+                right_output_partitions = self.ops.copartition(right_frame.partitions,
+                                                               is_range, index_slices=right_index_slices)
+                new_frame = self.ops.injective_map(left_output_partitions,
+                                                   None, right_output_partitions, func, False)
         return EagerFrame(new_frame)
+
 
 
 

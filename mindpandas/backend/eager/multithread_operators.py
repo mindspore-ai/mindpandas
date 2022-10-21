@@ -17,8 +17,11 @@ Module for performing multithreaded operations on partitions.
 """
 import concurrent.futures
 
+from collections import defaultdict
+import hashlib
 import numpy as np
 import pandas
+from pandas.api.types import is_numeric_dtype
 
 from .partition import Partition
 from .ds_partition import DSPartition
@@ -541,3 +544,85 @@ class MultithreadOperator(SinglethreadOperator):
                 output_part = future.result()
                 output_partitions[output_part.coord] = output_part
         return output_partitions
+
+    @classmethod
+    def copartition(cls, parts, is_range, **kwargs):
+        num_rows, num_cols = parts.shape
+        container_type = parts[0, 0].container_type
+
+        def copartition_execution(index_map=None, num_output=None, is_range=False):
+            def wrap_partitions(idx, index_map=None):
+                def create_index_map_numeric(part_index):
+                    output_index = defaultdict(list)
+                    for idx in part_index:
+                        if not is_numeric_dtype(type(idx)) or (is_numeric_dtype(type(idx)) and idx % 1 != 0):
+                            # hash object index to int index
+                            hashed_index = int(hashlib.sha512(idx.encode('utf-8')).hexdigest()[:16], 16)
+                            hashed_index = abs(hash(hashed_index)) % (10**8)
+                            output_index[hashed_index%num_output].append(idx)
+                        else:
+                            output_index[idx%num_output].append(idx)
+                    for i in range(num_output):
+                        if output_index[i] is None:
+                            output_index[i].append(None)
+                    return output_index
+
+                sub_output_parts = []
+                if not is_range:
+                    concat_data = pandas.concat([part.get() for part in parts[idx, :]], axis=1)
+                    index_map = create_index_map_numeric(concat_data.index)
+                else:
+                    concat_data = pandas.concat([part.get() for part in parts[:, idx]], axis=0)
+
+                for i in range(len(index_map)):
+                    coord = (i, idx)
+                    if index_map[i] is None:
+                        data = pandas.DataFrame()
+                    else:
+                        if isinstance(index_map[i], list):
+                            index_map[i] = set(index_map[i])
+                        data = concat_data.loc[index_map[i]]
+                    output_part = Partition.put(data=data, coord=coord, container_type=container_type)
+                    sub_output_parts.append(output_part)
+                return sub_output_parts
+
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                if not is_range:
+                    output_parts = np.ndarray((num_rows, num_rows), dtype=object)
+                    future_parts = {executor.submit(wrap_partitions, j): j for j in range(num_rows)}
+                else:
+                    output_parts = np.ndarray((max(3, num_rows), num_cols), dtype=object)
+                    future_parts = {executor.submit(wrap_partitions, j, index_map): j for j in range(num_cols)}
+                for future in concurrent.futures.as_completed(future_parts):
+                    sub_output_parts = future.result()
+                    for output_part in sub_output_parts:
+                        output_parts[output_part.coord] = output_part
+                return output_parts
+
+        def copartition_concat(partitions):
+            num_rows, _ = partitions.shape
+            container_type = partitions[0, 0].container_type
+
+            def wrap_partitions(row):
+                data = pandas.concat([part.get() for part in partitions[row, :]], axis=0)
+                coord = (row, 0)
+                return Partition.put(data=data, coord=coord, container_type=container_type)
+
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                output_parts = np.ndarray((num_rows, 1), dtype=object)
+                future_parts = {executor.submit(wrap_partitions, i): i for i in range(num_rows)}
+                for future in concurrent.futures.as_completed(future_parts):
+                    output_part = future.result()
+                    output_parts[output_part.coord] = output_part
+
+                return output_parts
+
+        if is_range:
+            index_slices = kwargs.get("index_slices")
+            output_parts = copartition_execution(index_map=index_slices, is_range=is_range)
+        else:
+            num_output = kwargs.get("num_output")
+            output_parts = copartition_execution(num_output=num_output, is_range=is_range)
+            output_parts = copartition_concat(output_parts)
+
+        return output_parts
