@@ -671,6 +671,32 @@ class MultiprocessOperator(SinglethreadOperator):
         return output_partitions
 
     @classmethod
+    def remove_empty_partitions(cls, partitions):
+        """Remove empty partitions in multiprocess mode."""
+        input_futures = {part.meta_data_id: part for row_parts in partitions for part in row_parts}
+        empty_partitions_mask = np.zeros(partitions.shape)
+        pending_ids = list(input_futures.keys())
+        while pending_ids:
+            ready_ids, pending_ids = get_scheduler().wait(pending_ids)
+            for fid in ready_ids:
+                part = input_futures[fid]
+                if part.num_rows == 0 or part.num_cols == 0:
+                    empty_partitions_mask[part.coord] = 1
+
+        nonempty_parts = []
+        for x, row_parts in enumerate(empty_partitions_mask):
+            nonempty_row_parts = []
+            for y, empty in enumerate(row_parts):
+                if not empty:
+                    nonempty_row_parts.append(partitions[x, y])
+            if nonempty_row_parts:
+                nonempty_parts.append(nonempty_row_parts)
+
+        partitions = np.array(nonempty_parts, ndmin=2)
+        cls.reset_coord(partitions)
+        return partitions
+
+    @classmethod
     def setitem_elements(cls, partitions, func, part_row_locs, part_col_locs, item):
         """Setting item to specific rows/cols in specific partitions
 

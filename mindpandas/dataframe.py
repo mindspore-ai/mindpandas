@@ -694,8 +694,7 @@ class DataFrame:
                 if not axes["columns"]:
                     axes["columns"] = None
 
-        masked_dataframe = self._qc.drop(self, index=axes["index"], columns=axes["columns"])
-        return masked_dataframe
+        return self._qc.drop(self, index=axes["index"], columns=axes["columns"], inplace=inplace)
 
     def duplicated(self, subset=None, keep="first"):
         output_dataframe = self._qc.duplicated(self, subset=subset, keep=keep)

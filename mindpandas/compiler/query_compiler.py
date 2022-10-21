@@ -843,13 +843,17 @@ class QueryCompiler:
         return mpd.DataFrame(data=frame)
 
     @classmethod
-    def drop(cls, input_dataframe, index=None, columns=None, ignore_index=False):
+    def drop(cls, input_dataframe, index=None, columns=None, inplace=False, ignore_index=False):
         """Compiling drop"""
         map_func = ff.drop(index=index, columns=columns)
         frame = input_dataframe.backend_frame.map(map_func=map_func)
+        frame = frame.validate_partitions()
         result = mpd.DataFrame(frame)
         if ignore_index:
             result = result.reset_index(drop=True)
+        if inplace:
+            input_dataframe.set_backend_frame(result.backend_frame)
+            return None
         return result
 
     @classmethod
