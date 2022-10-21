@@ -20,11 +20,11 @@
         通过channel发送对象。
 
         参数：
-            - **obj** (array-like) - 要发送的对象。其应该是具有“len”属性的类似数组的对象（例如numpy.ndarray、python list），或者DataFrame对象。
+            - **obj** (Union[numpy.ndarray, list, mindpandas.DataFrame]) - 要发送的对象。
 
         异常：
-            - **AttributeError** - 对象没有 `len()` 时。
-            - **TypeError** - `obj` 没有下标操作时。
+            - **AttributeError** - 当对象没有 `len()` 时。
+            - **TypeError** - 当 `obj` 不能使用[]进行索引操作时。
 
     .. py:method:: num_shards
         :property:
@@ -44,4 +44,4 @@
             - **shard_id** (int, 可选) - 请求分片的id。默认值：None，将返回所有分片。
 
         返回：
-            List，存储未在分片中消费的数据引用的队列。
+            List，存储分片中数据的引用的列表。

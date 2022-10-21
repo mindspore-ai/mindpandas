@@ -11,7 +11,7 @@
     .. note::
         必须提前启动分布式执行引擎，并且提前初始化DataSender。要与正确的DataSender配对，`namespace` 和 `dataset_name` 必须与DataSender相同。
 
-    .. py:method:: recv(obj)
+    .. py:method:: recv()
 
         通过channel获取数据。
 
