@@ -22,11 +22,12 @@ class YrScheduler:
 
     @classmethod
     def init(cls, **kwargs):
-        conf = yr.Config(function_id="sn:cn:yrk:12345678901234561234567890123456:function:0-default-func:$latest",
-                         in_cluster=True,
-                         recycle_time=300,
-                         **kwargs)
-        yr.init(conf)
+        if not yr.is_initialized():
+            conf = yr.Config(function_id="sn:cn:yrk:12345678901234561234567890123456:function:0-default-func:$latest",
+                             in_cluster=True,
+                             recycle_time=300,
+                             **kwargs)
+            yr.init(conf)
 
     @classmethod
     def put(cls, value):

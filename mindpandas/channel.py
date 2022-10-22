@@ -15,6 +15,7 @@
 """
 This module defines DataSender and DataLoader class which is used to transfer data between processes.
 """
+import ipaddress
 import time
 import logging
 from collections import deque
@@ -22,7 +23,6 @@ from collections import deque
 import pandas
 import mindpandas
 import yr
-
 
 __all__ = ['DataSender', 'DataReceiver']
 
@@ -96,15 +96,20 @@ class BaseChannel:
     def __init__(self, address):
         self.initialized = False
 
+        if not isinstance(address, str):
+            raise ValueError(f"address has to be a string, got {type(address)}")
+
+        if ipaddress.ip_address(address).version != 4:
+            raise ValueError(f"{address} is not a valid IPv4 address")
+
         if not yr.is_initialized():
             logging.info('No yr cluster detected, starting a new one.')
-
-        conf = yr.Config(function_id="sn:cn:yrk:12345678901234561234567890123456:function:0-default-func:$latest",
-                         in_cluster=True,
-                         recycle_time=300,
-                         server_address=address,
-                         ds_address=address)
-        yr.init(conf)
+            conf = yr.Config(function_id="sn:cn:yrk:12345678901234561234567890123456:function:0-default-func:$latest",
+                             in_cluster=True,
+                             recycle_time=300,
+                             server_address=address,
+                             ds_address=address)
+            yr.init(conf)
 
 
 class DataSender(BaseChannel):
@@ -138,16 +143,34 @@ class DataSender(BaseChannel):
                  dataset_name='dataset',
                  full_batch=False
                  ):
+        if not isinstance(namespace, str):
+            raise ValueError(f"namespace has to be a string, got {type(namespace)}")
         if not isinstance(num_shards, int) or num_shards <= 0:
             raise ValueError(f"num_shards has to be a positive integer, got {num_shards} of type {type(num_shards)}")
+        if not isinstance(dataset_name, str):
+            raise ValueError(f"dataset_name has to be a string, got {type(dataset_name)}")
+        if not isinstance(full_batch, bool):
+            raise ValueError(f"full_batch has to be a boolean value, got {type(full_batch)}")
         self._num_shards = num_shards
         self._full_batch = full_batch
 
         super(DataSender, self).__init__(address=address)
 
         try:
+            # The lifetime of a yr named instance is decoupled from the script that created it, which means that the
+            # instance persists even after the script exits. Therefore, user has to manually call terminate() to kill
+            # the instance due the limitation of yr.
+            # In this case, to avoid duplicate instances, we need to check if there is an existing instances with the
+            # same name and namespace and terminate the instance before launching a new one.
+            # Yr plans to add a parameter to control the lifetime of the instance in the future, and this part will be
+            # optimized at that time.
             old_actor = yr.get_instance(name=dataset_name, namespace=namespace)
             old_actor.terminate()
+            # terminate() is executed asynchronously, we must ensure the instance has already been terminated before the
+            # next step. The only way to check the state of the instance is to call yr.get_instance(), which throws a
+            # RuntimeError if the instance has been terminated.
+            while yr.get_instance(name=dataset_name, namespace=namespace):
+                time.sleep(1)
         except RuntimeError:
             pass
 
@@ -171,28 +194,26 @@ class DataSender(BaseChannel):
             >>> data = [1, 2, 3, 4]
             >>> sender.send(data)
         """
-        if self.full_batch:
-            ref = yr.put(obj)
-            self.actor.put.invoke([ref], full_batch=True)
+        num_shards = 1 if self.full_batch else self.num_shards
+        if len(obj) <= 0 or len(obj) % num_shards != 0:
+            raise ValueError("The length of the obj is invalid, should be a positive integer and can be divided by "
+                             "num_shards with no remainder")
+
+        if isinstance(obj, mindpandas.DataFrame):
+            obj.repartition((num_shards, 1))
+            array_of_parts = obj.remote_to_numpy().flatten()
+            for i, part in enumerate(array_of_parts):
+                if hasattr(part, 'data_id'):
+                    ref = part.data_id
+                else:
+                    data = part.get()
+                    ref = yr.put(data)
+                self.actor.put.invoke([ref], shard_id=i, full_batch=self.full_batch)
         else:
-            if isinstance(obj, mindpandas.DataFrame):
-                obj.repartition((self.num_shards, 1))
-                array_of_parts = obj.remote_to_numpy().flatten()
-                for i, part in enumerate(array_of_parts):
-                    if hasattr(part, 'data_id'):
-                        ref = part.data_id
-                    else:
-                        data = part.get()
-                        ref = yr.put(data)
-                    self.actor.put.invoke([ref], shard_id=i)
-            else:
-                try:
-                    quo = len(obj) // self.num_shards
-                    for i in range(self.num_shards):
-                        ref = yr.put(obj[i * quo:(i + 1) * quo])
-                        self.actor.put.invoke([ref], shard_id=i)
-                except (AttributeError, TypeError) as e:
-                    raise e
+            quo = len(obj) // num_shards
+            for i in range(num_shards):
+                ref = yr.put(obj[i * quo:(i + 1) * quo])
+                self.actor.put.invoke([ref], shard_id=i, full_batch=self.full_batch)
 
     @property
     def num_shards(self):
@@ -248,6 +269,8 @@ class DataReceiver(BaseChannel):
                  shard_id=0,
                  dataset_name='dataset'
                  ):
+        if not isinstance(shard_id, int) or shard_id < 0:
+            raise ValueError(f"shard_id has to be a non-negative integer, got {shard_id} of type {type(shard_id)}")
         self.cool_down = 0.1
         self._shard_id = shard_id
         self.actor = None
