@@ -173,7 +173,8 @@ def set_adaptive_concurrency(adaptive, **kwargs):
     Args:
         adaptive(bool): True to turn on adaptive concurrency, False to turn off adaptive concurrency.
         **kwargs: For multiprocess dataframes.
--            * address: The ip address of the master node, required when adaptive is True.
+
+            * address: The ip address of the master node, required when adaptive is True.
 
     Raises:
         ValueError: if adaptive is not True or False.
