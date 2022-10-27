@@ -1,4 +1,4 @@
-# WelCome to MindPandas
+# Welcome to MindPandas
 
 [查看中文](./README_CN.md)
 
@@ -11,6 +11,7 @@
     - [Confirming System Environment Information](#confirming-system-environment-information)
     - [Installing from pip command](#installing-from-pip-command)
     - [Installing from source code](#installing-from-source-code)
+- [Installation Verification](#installation-verification)
 - [Quickstart](#quickstart)
 - [Docs](#docs)
 - [Contributing](#contributing)
@@ -70,7 +71,7 @@ The package is in output directory after compiled and you can install with pip.
 pip install output/mindpandas-0.1.0-cp38-cp38-linux_x86_64.whl
 ```
 
-## Verification
+## Installation Verification
 
 Execute the following command in shell. If no `No module named 'mindpandas'` error is reported, the installation is successful.
 
