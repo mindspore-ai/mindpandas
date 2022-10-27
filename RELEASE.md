@@ -10,7 +10,7 @@ MindPandas is a data analysis framework that is compatible with the Pandas inter
 
 - [STABLE] MindPandas provides over 100 distributed pandas APIs. Modify a small amount of code to switch from native Pandas to MindPandas.
 - [STABLE] Provides multi-process and multi-thread execution modes, and provides parallel processing capability of data in single-node or cluster mode to improve data processing performance.
-- [STABLE] Efficiently use cluster resources to process large-scale data, resolving the problem that native Pandas cannot process big data.
+- [STABLE] Efficiently use cluster resources to process large-scale data, resolving the problem that Pandas cannot process large amount of data due to memory limitations.
 
 ### Contributors
 

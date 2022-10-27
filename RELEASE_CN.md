@@ -10,7 +10,7 @@ MindPandas是一款兼容Pandas接口，同时提供分布式处理能力的数�
 
 - [STABLE] MindPandas提供100+分布式化Pandas API，修改少量代码即可从原生Pandas切换到MindPandas。
 - [STABLE] 提供多进程和多线程两种执行方式，以单机或集群的方式提供数据的并行处理能力，提高数据处理的性能。
-- [STABLE] 高效利用集群资源以处理大规模数据，解决原生Pandas无法处理大数据的问题。
+- [STABLE] 高效利用集群资源以处理大规模数据，解决原生Pandas因内存限制无法处理大数据量的问题。
 
 ### 贡献者
 
