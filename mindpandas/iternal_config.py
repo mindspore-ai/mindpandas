@@ -141,7 +141,7 @@ def set_adaptive_concurrency(adaptive):
 
     Examples:
         >>> # Set the adaptive concurrency flag to True.
-        >>> mindpandas.config.set_adaptive_concurrency(True)
+        >>> mindpandas.config.set_adaptive_concurrency(True, address='127.0.0.1')
     """
     global adaptive_concurrency
     adaptive_concurrency = adaptive
