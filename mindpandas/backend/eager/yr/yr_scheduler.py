@@ -41,7 +41,7 @@ class YrScheduler:
             obj_ids = list(obj_ids)
         if not isinstance(obj_ids, list):
             obj_ids = [obj_ids]
-        result = yr.get(obj_ids)
+        result = yr.get(obj_ids, timeout=3600)
         return result
 
     @classmethod
