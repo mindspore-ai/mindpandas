@@ -182,13 +182,15 @@ def set_adaptive_concurrency(adaptive, **kwargs):
     Examples:
         >>> # Set adaptive concurrency to True.
         >>> import mindpandas as pd
-        >>> pd.set_adaptive_concurrency(True)
+        >>> pd.set_adaptive_concurrency(True, address='127.0.0.1')
     """
     if adaptive not in (0, 1):
         raise ValueError(f"adaptive must be False or True, but got {adaptive}.")
 
     if adaptive:
         address = kwargs.get('address', None)
+        if address is None:
+            raise ValueError("When adaptive_concurrency is set to True, keyword argument 'address' is required.")
         eager_backend.set_yr_backend(server_address=address, ds_address=address)
 
     i_config.set_adaptive_concurrency(adaptive)
