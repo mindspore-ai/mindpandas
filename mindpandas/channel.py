@@ -176,6 +176,10 @@ class DataSender(BaseChannel):
 
         option = yr.InvokeOptions(name=dataset_name, namespace=namespace)
         actor = Actor.options(option).invoke(num_shards=self.num_shards)
+        # Instance creation is asynchronous. If the instance doesn't complete its initialization in this constructor,
+        # it may cause unpredictable errors. For now, we can only wait with time.sleep(), which will be replaced by a
+        # more reasonable solution in the future.
+        time.sleep(1)
         self.actor = actor
 
     def send(self, obj):
