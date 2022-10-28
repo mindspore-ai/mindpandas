@@ -227,6 +227,17 @@ class DataFrameGroupBy:
             k in (sorted(group_ids) if self.kwargs['sort'] else group_ids)
         )
 
+    def _getitem_key_validation_check(self, key):
+        if isinstance(key, (list, tuple, pandas.Series, mpd.Series, pandas.Index, np.ndarray)):
+            if len(self.columns.intersection(key)) != len(set(key)):
+                error_keys = list(set(key).difference(self.columns))
+                raise KeyError(f"Columns not found: {str(error_keys)[1:-1]}")
+        elif isinstance(key, (pandas.DataFrame, mpd.DataFrame, dict)):
+            raise TypeError(f"unhashable type: '{key.__class__.__name__}'")
+        else:
+            if key not in self.columns:
+                raise KeyError(f"Column not found: {key}")
+
     def __getitem__(self, key):
         kwargs = {
             **self.kwargs.copy(),
@@ -235,6 +246,8 @@ class DataFrameGroupBy:
             "by_names": self.by_names,
             "by_dataframe": self.by_dataframe
         }
+
+        self._getitem_key_validation_check(key)
 
         if self._is_series and len(key) > 1:
             raise AttributeError("'Series' object has no attribute 'columns'")
@@ -296,12 +309,6 @@ class DataFrameGroupBy:
                 get_item_key=get_item_key,
                 **kwargs,
             )
-
-        if any([isinstance(key, pandas.DataFrame),
-                isinstance(key, mpd.DataFrame),
-                isinstance(key, dict)]):
-            # key is in type[dict, pandas.DataFrame, mindspore.pandas.DataFrame]
-            raise TypeError(f"unhashable type: '{key.__class__.__name__}'")
 
         raise NotImplementedError(
             f"Current DataFrame groupby doesn't support {type(key)} type keys.")
