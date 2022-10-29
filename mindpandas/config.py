@@ -30,8 +30,8 @@ def set_concurrency_mode(mode, **kwargs):
     Args:
         mode(str): This parameter can be set to 'multithread' for multithread backend, or 'multiprocess' for
             distributed multiprocess backend.
-        **kwargs: When running on multithread mode, no additional kwargs needed. When running on multiprocess mode,
-            additional parameters include:
+        **kwargs: When running on multithread mode, no additional parameters are required. When running on multiprocess
+            mode, additional parameters include:
 
             * address: The ip address of the master node, required.
 
@@ -110,9 +110,8 @@ def get_partition_shape():
     Get the current partition shape.
 
     Returns:
-        shape(tuple): Number of expected partitions along each axis. It is a tuple of two positive integers.
-            The first element is the row-wise number of partitions and the second element is the column-wise number of
-            partitions.
+        tuple, Number of expected partitions along each axis. It is a tuple of two positive integers. The first element
+        is the row-wise number of partitions and the second element is the column-wise number of partitions.
 
     Examples:
         >>> # Get the current partition shape.
@@ -172,9 +171,10 @@ def set_adaptive_concurrency(adaptive, **kwargs):
 
     Args:
         adaptive(bool): True to turn on adaptive concurrency, False to turn off adaptive concurrency.
-        **kwargs: For multiprocess dataframes.
+        **kwargs: When 'adaptive' is set to False, no additional parameters are required. When 'adaptive' is set to
+            True, 'kwargs' includes:
 
-            * address: The ip address of the master node, required when adaptive is True.
+            * address: The ip address of the master node.
 
     Raises:
         ValueError: if adaptive is not True or False.
