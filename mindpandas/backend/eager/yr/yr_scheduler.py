@@ -48,15 +48,11 @@ class YrScheduler:
     def wait(cls, obj_ids):
         if not isinstance(obj_ids, list):
             obj_ids = [obj_ids]
-        # Without time-out arg, it is synchronous and will block until all data is ready, and returns [ready_ids], [].
-        # To be asynchronous, add time-out, which will return ready_ids and pending_ids list.
-        ready_id, pending_id = yr.wait(obj_ids, len(obj_ids), 1)  # asynch mode
-        # ready_id, pending_id = yr.wait(obj_ids, len(obj_ids)) #synch mode
+        ready_id, pending_id = yr.wait(obj_ids)
         return ready_id, pending_id
 
     @classmethod
     def remote(cls, apply_func, *args, **kwargs):
-        # yr invoke return multiple outputs as single tuple object
         future_id, meta_data_id = apply_func.invoke(*args, **kwargs)
         return future_id, meta_data_id
 
