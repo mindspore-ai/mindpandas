@@ -29,6 +29,10 @@ def test_astype():
         df = module.DataFrame({'col1': [1, 2], 'col2': [3, 4]})
         return df
 
+    def create_ser_astype(module):
+        df = module.DataFrame([True, False, None])
+        return df
+
     def test_cast_to_float(df):
         return df.astype('float32')
 
@@ -41,3 +45,6 @@ def test_astype():
     TESTUTIL.compare(test_cast_to_float, create_fn=create_df_astype)
     TESTUTIL.compare(test_cast_dict, create_fn=create_df_astype)
     TESTUTIL.compare(test_category, create_fn=create_df_astype)
+
+    TESTUTIL.compare(test_cast_to_float, create_fn=create_ser_astype)
+    TESTUTIL.compare(test_category, create_fn=create_ser_astype)

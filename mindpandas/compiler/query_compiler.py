@@ -1903,16 +1903,16 @@ class QueryCompiler:
     def astype(cls, df, dtype, copy, errors):
         """Compiling astype"""
         func = ff.astype(dtype=dtype, copy=copy, errors=errors)
-        if isinstance(df, mpd.Series):
-            frame = df.backend_frame.map(func)
-            return mpd.Series(frame)
 
         if dtype == 'category':
-            shape = df.shape
+            partition_shape = df.backend_frame.partition_shape
             frame = df.backend_frame.reduce(func, axis=0)
-            frame = frame.repartition(shape, i_config.get_min_block_size())
+            frame = frame.repartition(partition_shape, i_config.get_min_block_size())
         else:
             frame = df.backend_frame.map(func)
+
+        if isinstance(df, mpd.Series):
+            return mpd.Series(df)
         return mpd.DataFrame(frame)
 
     @classmethod
