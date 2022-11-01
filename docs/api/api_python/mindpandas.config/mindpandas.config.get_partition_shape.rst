@@ -1,4 +1,4 @@
-.. py:function:: mindpandas.get_partition_shape()
+.. py:function:: mindpandas.config.get_partition_shape()
 
     获取当前分片的维度。
 

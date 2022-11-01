@@ -1,4 +1,4 @@
-.. py:function:: mindpandas.set_partition_shape(shape)
+.. py:function:: mindpandas.config.set_partition_shape(shape)
 
     用户可以设置数据分片的shape，其中shape[0]是行方向上的分片数量，shape[1]是列方向上的分片数量。例如，设置shape为(16, 16)时，MindPandas会尝试将数据切分为16*16个分片。
 
