@@ -1912,7 +1912,7 @@ class QueryCompiler:
             frame = df.backend_frame.map(func)
 
         if isinstance(df, mpd.Series):
-            return mpd.Series(df)
+            return mpd.Series(frame)
         return mpd.DataFrame(frame)
 
     @classmethod

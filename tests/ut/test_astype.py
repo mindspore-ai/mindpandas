@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 import pytest
+from pandas import CategoricalDtype
 
 from util import TESTUTIL
 
@@ -30,21 +31,34 @@ def test_astype():
         return df
 
     def create_ser_astype(module):
-        df = module.DataFrame([True, False, None])
-        return df
+        ser = module.Series([1, 2], dtype='int32')
+        return ser
+
+    def create_ser_none_astype(module):
+        ser = module.Series([True, False, None])
+        return ser
 
     def test_cast_to_float(df):
         return df.astype('float32')
 
-    def test_cast_dict(df):
+    def test_cast_to_dict(df):
         return df.astype({'col1': 'float32'})
 
-    def test_category(df):
+    def test_cast_to_category1(df):
         return df.astype('category')
 
+    def test_cast_to_category2(df):
+        cat_dtype = CategoricalDtype(categories=[3, 2, 1], ordered=True)
+        return df.astype(cat_dtype)
+
     TESTUTIL.compare(test_cast_to_float, create_fn=create_df_astype)
-    TESTUTIL.compare(test_cast_dict, create_fn=create_df_astype)
-    TESTUTIL.compare(test_category, create_fn=create_df_astype)
+    TESTUTIL.compare(test_cast_to_dict, create_fn=create_df_astype)
+    TESTUTIL.compare(test_cast_to_category1, create_fn=create_df_astype)
+    TESTUTIL.compare(test_cast_to_category2, create_fn=create_df_astype)
 
     TESTUTIL.compare(test_cast_to_float, create_fn=create_ser_astype)
-    TESTUTIL.compare(test_category, create_fn=create_ser_astype)
+    TESTUTIL.compare(test_cast_to_category1, create_fn=create_ser_astype)
+    TESTUTIL.compare(test_cast_to_category2, create_fn=create_ser_astype)
+    TESTUTIL.compare(test_cast_to_float, create_fn=create_ser_none_astype)
+    TESTUTIL.compare(test_cast_to_category1, create_fn=create_ser_none_astype)
+    TESTUTIL.compare(test_cast_to_category2, create_fn=create_ser_none_astype)
