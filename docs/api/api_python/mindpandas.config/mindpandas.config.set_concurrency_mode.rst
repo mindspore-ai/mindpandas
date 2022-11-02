@@ -6,7 +6,7 @@
         - **mode** (str) - 可设置为"multithread"或"multiprocess"。
         - **kwargs** - 在"multithread"模式下运行时不需要额外的参数。在"multiprocess"模式下， `kwargs` 包括：
 
-            - address - 主节点的ip地址，必填。
+          - address: 主节点的ip地址，必填。
 
     异常：
         - **ValueError** - `mode` 不是"multithread"或"multiprocess"。
