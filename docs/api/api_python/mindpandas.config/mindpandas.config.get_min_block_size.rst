@@ -1,4 +1,4 @@
-.. py:function:: mindpandas.get_min_block_size()
+.. py:function:: mindpandas.config.get_min_block_size()
 
     获取每个分片的当前最小块大小。
 
