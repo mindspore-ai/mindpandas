@@ -134,7 +134,7 @@ def read_csv(filepath, **kwargs):
         return output_frame
 
     if isinstance(filepath, str):
-        if filepath.startswith(("http", "ftp", "s3", "gs", "file")):
+        if filepath.startswith(("http://", "https://", "ftp://", "s3://", "gs://", "file://")):
             return default_to_pandas_read_csv(filepath, **kwargs)
         filepath = os.path.abspath(filepath)
         file_size = os.path.getsize(filepath)
