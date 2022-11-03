@@ -159,6 +159,10 @@ class ReduceMean:
         if not isinstance(sum_val, pandas.Series):
             sum_val = sum_val.sum(axis=self.axis, skipna=self.skipna)
             count_val = count_val.sum(axis=self.axis)
+
+        if 0 in count_val.values:
+            raise TypeError("unsupported operand type(s)")
+
         return sum_val / count_val
 
 
