@@ -160,7 +160,7 @@ class ReduceMean:
             sum_val = sum_val.sum(axis=self.axis, skipna=self.skipna)
             count_val = count_val.sum(axis=self.axis)
 
-        if 0 in count_val.values:
+        if 0 in count_val.values or any(np.isnan(v) for v in count_val.values) or sum_val.empty or count_val.empty:
             raise TypeError("unsupported operand type(s)")
 
         return sum_val / count_val
