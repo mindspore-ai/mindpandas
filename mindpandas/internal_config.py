@@ -31,16 +31,10 @@ functions = 'pandas'
 
 def set_concurrency_mode(mode):
     """
-    Users can select which mode they want to use to parallelize the computation. Default strategy is multithread.
-
-    Note:
-        Lazy mode is a beta version and still in development.
+    For internal use only. Set the backend concurrency mode to parallelize the computation.
 
     Args:
-        mode(str): This parameter can be set to 'multithread' or 'yr'.
-
-    Raises:
-        ValueError: If mode is not 'multithread' or 'yr'.
+        mode(str): This parameter can be set to 'multithread' or 'multiprocess'.
     """
     global _concurrency_mode
     _concurrency_mode = mode
@@ -48,10 +42,13 @@ def set_concurrency_mode(mode):
 
 def get_concurrency_mode():
     """
-    Get the current concurrency mode.
+    For internal use only. Get the current concurrency mode.
 
     Returns:
-        str, current concurrency mde.
+        str, current concurrency mode.
+
+    Raises:
+        ValueError:  If adaptive_concurrency is True
     """
     global adaptive_concurrency
     if adaptive_concurrency:
@@ -60,15 +57,14 @@ def get_concurrency_mode():
     global _concurrency_mode
     return _concurrency_mode
 
+
 def set_benchmark_mode(mode):
     """
-    Users can select if they want to turn on benchmarkmode for performance analysis. Default mode is False.
+    For internal use only. Users can select if they want to turn on benchmark mode for performance analysis.
+    Default mode is False.
 
     Args:
-        strategy(str): This parameter can be set to True or False.
-
-    Raises:
-        ValueError: If mode is not True or False.
+        mode(bool): This parameter can be set to True or False.
     """
     global _benchmark_mode
     _benchmark_mode = mode
@@ -76,10 +72,10 @@ def set_benchmark_mode(mode):
 
 def get_benchmark_mode():
     """
-    Get the current benchmark mode.
+    For internal use only. Get the current benchmark mode.
 
     Returns:
-        str, current benchmark mde.
+        bool, current benchmark mode.
     """
     global _benchmark_mode
     return _benchmark_mode
@@ -87,19 +83,10 @@ def get_benchmark_mode():
 
 def set_partition_shape(shape):
     """
-    Users can set the partition shape of each partition. If the shape is (16, 16),
-    that means each partition has 16 columns and 16 rows. If all data only has 15 columns,
-    each partition has 15 columns and 16 rows.
+    For internal use only. Set the expected partition shape of the data.
 
     Args:
-        shape(tuple): Shape of each partition.
-
-    Raises:
-        ValueError: If shape is not tuple type or the value of shape is not int.
-
-    Examples:
-        >>> # Set the shape of each partition to (16, 16).
-        >>> mindpandas.config.set_partition_shape((16, 16))
+        shape(tuple): Number of expected partitions along each axis.
     """
     global _partition_shape
     _partition_shape = shape
@@ -107,14 +94,10 @@ def set_partition_shape(shape):
 
 def get_partition_shape():
     """
-    Get the current partition shape.
+    For internal use only. Get the current partition shape.
 
     Returns:
         tuple, current partition shape.
-
-    Examples:
-        >>> # Get the current partition shape.
-        >>> mode = mindpandas.config.get_partition_shape
     """
     global _partition_shape
     return _partition_shape
@@ -122,18 +105,10 @@ def get_partition_shape():
 
 def set_min_block_size(min_block_size):
     """
-    Users can set the min block size of each partition. If the partition shape is (16, 16)
-    and the min block size is 8, that means the shape of each partition is (8, 8).
+    For internal use only. Set the min block size of each partition.
 
     Args:
-        min_block_size(Int): Shape of each partition.
-
-    Raises:
-        ValueError: if min_block_size is not int type.
-
-    Examples:
-        >>> # Set the min block size of each partition to 8.
-        >>> mindpandas.config.set_min_block_size(8)
+        min_block_size(int): Minimum size of a partition's number of rows and number of columns during partitioning.
     """
     global _min_block_size
     _min_block_size = min_block_size
@@ -141,14 +116,11 @@ def set_min_block_size(min_block_size):
 
 def get_min_block_size():
     """
-    Get the current min block size of each partition.
+    For internal use only. Get the current min block size of each partition.
 
     Returns:
         int, current min block size of each partition.
 
-    Examples:
-        >>> # Get the current min block size.
-        >>> mode = mindpandas.config.get_min_block_size
     """
     global _min_block_size
     return _min_block_size
@@ -156,17 +128,10 @@ def get_min_block_size():
 
 def set_adaptive_concurrency(adaptive):
     """
-    Set the flag to use adaptive concurrency.
+    For internal use only. Set the flag for using adaptive concurrency or not.
 
     Args:
         adaptive(bool): True or False.
-
-    Raises:
-        ValueError: if adaptive is not 1 or 0.
-
-    Examples:
-        >>> # Set the adaptive concurrency flag to True.
-        >>> mindpandas.config.set_adaptive_concurrency(True, address='127.0.0.1')
     """
     global adaptive_concurrency
     adaptive_concurrency = adaptive
@@ -174,14 +139,10 @@ def set_adaptive_concurrency(adaptive):
 
 def get_adaptive_concurrency():
     """
-    Get the flag to use adaptive concurrency.
+    For internal use only. Get the flag for using adaptive concurrency or not.
 
     Returns:
         bool, value of adaptive_concurrency flag.
-
-    Examples:
-        >>> # Get the adaptive concurrency flag
-        >>> adaptive = mindpandas.config.get_adaptive_concurrency
     """
     global adaptive_concurrency
     return adaptive_concurrency
@@ -189,22 +150,15 @@ def get_adaptive_concurrency():
 
 def get_adaptive_partition_shape(mode):
     """
-    Get the partition shape for a particular concurrency mode.
+    For internal use only. Get the partition shape based on mode for adaptive concurrency.
 
     Args:
-        mode(str): 'multithread' or 'yr'
-
-    Raises:
-        ValueError: if mode is not 'multithread' or 'yr'
+        mode(str): 'multithread' or 'multiprocess'
 
     Returns:
         tuple, the partition shape for that mode.
-
-    Examples:
-        >>> # Get the adaptive partition shape
-        >>> adaptive = mindpandas.config.get_adaptive_partition_shape
     """
-    if mode == 'yr':
+    if mode == 'multiprocess':
         global multiprocess_shape
         return multiprocess_shape
     global multithread_shape

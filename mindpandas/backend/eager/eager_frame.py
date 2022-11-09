@@ -25,7 +25,7 @@ from pandas._libs.lib import is_list_like
 from pandas.core.indexes.api import ensure_index
 
 import mindpandas as mpd
-import mindpandas.iternal_config as i_config
+import mindpandas.internal_config as i_config
 from mindpandas.backend.base_frame import BaseFrame
 from mindpandas.backend.eager.multiprocess_operators import MultiprocessOperator as mp_ops
 from mindpandas.backend.eager.multithread_operators import MultithreadOperator as mt_ops
@@ -65,7 +65,7 @@ class EagerFrame(BaseFrame):
                 self.default_partition = MultithreadPartition
                 self.default_partition_shape = mpd.config.get_adaptive_partition_shape('multithread')
         else:
-            if i_config.get_concurrency_mode() == "yr":
+            if i_config.get_concurrency_mode() == "multiprocess":
                 self.ops = mp_ops
                 self.default_partition = DSPartition
             elif i_config.get_concurrency_mode() == "multithread":

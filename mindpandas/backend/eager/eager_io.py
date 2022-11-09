@@ -23,7 +23,7 @@ import pandas._libs.lib as lib
 from pandas.io.common import infer_compression
 
 import mindpandas as mpd
-import mindpandas.iternal_config as i_config
+import mindpandas.internal_config as i_config
 import mindpandas.backend.eager.eager_backend as eager_backend
 from .eager_frame import EagerFrame
 
@@ -34,7 +34,7 @@ adaptive_pandas_df_memusage_threshold = 1000000000  # 1 GB
 
 def _get_ops():
     """Return the corresponding operator according to concurrency_mode"""
-    if i_config.get_concurrency_mode() == "yr":
+    if i_config.get_concurrency_mode() == "multiprocess":
         from mindpandas.backend.eager.multiprocess_operators import MultiprocessOperator as ops
     elif i_config.get_concurrency_mode() == "multithread":
         from mindpandas.backend.eager.multithread_operators import MultithreadOperator as ops

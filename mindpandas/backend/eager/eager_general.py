@@ -17,7 +17,7 @@ Module for eager execution of general pandas operations.
 """
 import numpy as np
 import pandas
-import mindpandas.iternal_config as i_config
+import mindpandas.internal_config as i_config
 from .eager_frame import EagerFrame
 from .eager_backend import get_partition
 

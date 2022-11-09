@@ -36,7 +36,7 @@ from pandas.core.reshape.util import cartesian_product
 from pandas.io.common import get_handle
 
 import mindpandas as mpd
-import mindpandas.iternal_config as i_config
+import mindpandas.internal_config as i_config
 from mindpandas.backend.base_general import BaseGeneral
 from mindpandas.backend.base_io import BaseIO
 from mindpandas.compiler.function_factory import FunctionFactory as ff

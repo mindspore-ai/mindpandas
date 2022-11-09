@@ -9,22 +9,24 @@ import numpy as np
 import pandas
 from pandas.api.types import is_numeric_dtype
 
-import mindpandas as mpd
+import mindpandas.internal_config as i_config
 from .ds_partition import DSPartition as Partition
 from .eager_backend import get_scheduler
 from .eager_backend import remote_functions as rf
 from .partition_operators import SinglethreadOperator
 
+
 def wait_computations_finished(func):
     """
     Make sure a `func` finished its computations in benchmark mode.
     """
+
     @wraps(func)
     def wait(*args, **kwargs):
         """Wait for computation results."""
         result = func(*args, **kwargs)
         # if benchmark_mode is True, wait until the computation is finished
-        if not mpd.iternal_config.get_benchmark_mode():
+        if not i_config.get_benchmark_mode():
             return result
         if isinstance(result, tuple):
             partitions = result[0]
@@ -32,7 +34,9 @@ def wait_computations_finished(func):
             partitions = result
         all(map(lambda partition: partition.wait() or True, partitions.flatten()))
         return result
+
     return wait
+
 
 def determine_if_multithreaded_partitions(partitions, is_scalar=False):
     return not is_scalar and partitions is not None and len(partitions) > 0 and not isinstance(partitions[0][0],
@@ -555,7 +559,6 @@ class MultiprocessOperator(SinglethreadOperator):
             set_index_2d()
         return output_partitions
 
-
     @classmethod
     def copartition(cls, parts, is_range, **kwargs):
         parts = cls.apply_func_queue(parts)
@@ -655,8 +658,6 @@ class MultiprocessOperator(SinglethreadOperator):
             output_parts = copartition_execution(index_map=index_slices)
 
         return output_parts
-
-
 
     @classmethod
     @wait_computations_finished

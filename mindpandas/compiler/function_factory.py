@@ -15,13 +15,13 @@
 """ Mindpandas Function Factory Class"""
 import warnings
 
-import mindpandas as mpd
+import mindpandas.internal_config as i_config
 
 
 class FunctionFactory:
     """ Mindpandas Function Factory Class"""
     ff_: None
-    if mpd.iternal_config.functions == "pandas":
+    if i_config.functions == "pandas":
         import mindpandas.compiler.pandas_factory as pf
         ff_ = pf
     else:
