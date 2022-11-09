@@ -20,6 +20,7 @@ import numpy as np
 import pandas
 
 import mindpandas as mpd
+from mindpandas.compiler.function_factory import FunctionFactory as ff
 from mindpandas.dataframe import (DataFrame, hashable, is_list_like,
                                   no_default)
 
@@ -89,6 +90,7 @@ class DataFrameGroupBy:
         attribute_name: str
             The attribute name which want to get from the groupby object
         """
+        mask_func = ff.mask_iloc()
         if self._index_grouped_cache is None or no_default:
             index_ = self.backend_frame.index
             def compute_by():
@@ -134,8 +136,8 @@ class DataFrameGroupBy:
 
             def get_axes_label_case():
                 if self.axis == 0:
-                    return self.backend_frame.get_columns(by).to_pandas()
-                return self.backend_frame.get_rows(by).to_pandas()
+                    return self.backend_frame.get_columns(by, func=mask_func).to_pandas()
+                return self.backend_frame.get_rows(by, func=mask_func).to_pandas()
 
             def get_axes_list_mapping_case():
                 if self.axis == 0:
@@ -246,6 +248,7 @@ class DataFrameGroupBy:
             "by_names": self.by_names,
             "by_dataframe": self.by_dataframe
         }
+        mask_func = ff.mask_iloc()
 
         self._getitem_key_validation_check(key)
 
@@ -294,7 +297,7 @@ class DataFrameGroupBy:
             else:   # _by is mapping
                 pass
 
-            new_dataframe = DataFrame(self.backend_frame.get_columns(key))
+            new_dataframe = DataFrame(self.backend_frame.get_columns(key, func=mask_func))
 
             if is_dataframe:
                 groupby_obj = DataFrameGroupBy

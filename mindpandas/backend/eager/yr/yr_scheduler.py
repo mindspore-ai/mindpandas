@@ -45,6 +45,11 @@ class YrScheduler:
         return result
 
     @classmethod
+    def wait_computation_finished(cls, obj_ids):
+        '''Wait until computation finished.'''
+        yr.wait([obj_ids])
+
+    @classmethod
     def wait(cls, obj_ids):
         if not isinstance(obj_ids, list):
             obj_ids = [obj_ids]

@@ -52,7 +52,10 @@ def concat(objs,
                                    levels=levels,
                                    **kwargs)
     partition = get_partition().put(data=pd_concated_df, coord=(0, 0))
-    output_frame = EagerFrame(np.array([[partition]]))
+    if isinstance(pd_concated_df, pandas.DataFrame):
+        output_frame = EagerFrame(np.array([[partition]]), pd_concated_df.index, pd_concated_df.columns)
+    else:
+        output_frame = EagerFrame(np.array([[partition]]), pd_concated_df.index)
     output_frame = output_frame.repartition(i_config.get_partition_shape(),
                                             i_config.get_min_block_size())
     return output_frame

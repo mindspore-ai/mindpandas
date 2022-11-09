@@ -280,3 +280,7 @@ class FunctionFactory:
     @classmethod
     def set_series_name(cls, value):
         return cls.ff_.SetSeriesName(value=value)
+
+    @classmethod
+    def mask_iloc(cls):
+        return cls.ff_.MaskILoc()

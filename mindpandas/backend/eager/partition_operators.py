@@ -288,7 +288,8 @@ class SinglethreadOperator:
              columns_index,
              rows_partition_index_dict,
              columns_partition_index_dict,
-             is_series=False):
+             is_series=False,
+             func=None):
         '''Mask operation in singlethreaded mode.'''
         # optimize the case where we select all rows
         # when we select all rows or columns the partition_index_dict is

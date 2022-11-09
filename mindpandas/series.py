@@ -179,7 +179,11 @@ class Series:
         if axis not in [0, 'index']:
             raise ValueError(f" No axis named {axis} for object type Series")
         self._validate_set_axis(axis=axis, new_labels=labels)
-        return self._qc.set_axis(input_dataframe=self, labels=labels, axis=axis, inplace=inplace)
+        series = self._qc.set_axis(input_dataframe=self, labels=labels, axis=axis, inplace=inplace)
+        if inplace:
+            self.backend_frame = series.backend_frame
+            return None
+        return series
 
     @property
     def shape(self):
@@ -276,36 +280,15 @@ class Series:
             return self.to_pandas().squeeze()
         return copy.copy(self)
 
-    def _statistic_operation(self,
-                             op_name,
-                             axis=None,
-                             skipna=True,
-                             level=None,
-                             numeric_only=None,
-                             **kwargs):
-        """
-        Do common statistic reduce operations under Series.
-        Args:
-            op_name : str. Name of method to apply.
-            axis : int or str. Axis to apply method on.
-            skipna : bool. Exclude NA/null values when computing the result.
-            level : int or str. If specified `axis` is a MultiIndex, applying method
-                along a particular level, collapsing into a Series.
-            numeric_only : bool, optional. Not implemented for mindspore.Series
-            **kwargs : dict. Additional keyword arguments to pass to `op_name`.
-        Returns:
-            scalar, Series
-        """
+    def _statistic_operation(self, op_name, axis=None, skipna=True,
+                             level=None, numeric_only=None, **kwargs):
+        """Do common statistic reduce operations under Series."""
         axis = self._get_axis_number(axis)
 
         if level is not None:
-            return self._qc.default_to_pandas(df=self,
-                                              df_method=op_name,
-                                              axis=axis,
-                                              skipna=skipna,
-                                              level=level,
-                                              numeric_only=numeric_only,
-                                              force_series=True,
+            return self._qc.default_to_pandas(df=self, df_method=op_name, axis=axis,
+                                              skipna=skipna, level=level,
+                                              numeric_only=numeric_only, force_series=True,
                                               **kwargs)
 
         if numeric_only is not None:
@@ -669,6 +652,12 @@ class Series:
         # if ms_value is None and method is None, raise error message
         if ms_value is None and ms_method is None:
             raise ValueError("In Mindpandas, must specify a fill method or value")
+        # check limit value
+        if limit is not None:
+            if not isinstance(limit, int):
+                raise ValueError("limit must be an integer")
+            if limit <= 0:
+                raise ValueError("limit must be greater than 0")
         # check if ms_value is instance of Series
         if isinstance(ms_value, Series):
             ms_value = ms_value.to_pandas()
@@ -682,23 +671,11 @@ class Series:
                 expecting=expecting, method=ms_method
             )
             raise ValueError(msg)
-        # check limit value
-        if limit is not None:
-            if not isinstance(limit, int):
-                raise ValueError("limit must be an integer")
-            if limit <= 0:
-                raise ValueError("limit must be greater than 0")
-        output_dataframe = self._qc.fillna(
-            input_dataframe=self,
-            squeeze_self=True,
-            value=ms_value,
-            method=ms_method,
-            axis=ms_axis,
-            inplace=False,
-            limit=limit,
-            downcast=downcast,
-            is_series=True,
-        )
+
+        output_dataframe = self._qc.fillna(input_dataframe=self, squeeze_self=True,
+                                           value=ms_value, method=ms_method, axis=ms_axis,
+                                           inplace=False, limit=limit, downcast=downcast,
+                                           is_series=True)
         if ms_inplace:
             self.backend_frame = output_dataframe.backend_frame
             return None
