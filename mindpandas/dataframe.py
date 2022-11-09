@@ -33,8 +33,7 @@ import mindpandas as mpd
 from mindpandas.backend.base_frame import BaseFrame
 from . import iternal_config as i_config
 from .iterator import DataFrameIterator
-from .util import is_full_grab_slice
-from .util import hashable
+from .util import is_full_grab_slice, hashable
 
 _novalue = object()
 
@@ -1560,7 +1559,16 @@ class DataFrame:
             self._set_item_key_not_in_columns(key, value)
             return
 
-        ### would use self.mask when key is mpd.DataFrame
+        if not hashable(key):
+            if isinstance(key, list) and all(k in self.columns for k in key):
+                if is_list_like(value):
+                    if not (hasattr(value, "shape") and hasattr(value, "ndim")):
+                        value = np.array(value)
+                    if len(key) != value.shape[-1]:
+                        raise ValueError("Columns must be same length as key")
+                self.loc[:, key] = value
+                return
+
         self._qc.default_to_pandas(self, pandas.DataFrame.__setitem__, key=key, value=value)
         return
 

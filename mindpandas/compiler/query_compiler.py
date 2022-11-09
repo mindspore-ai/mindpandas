@@ -1957,10 +1957,10 @@ class QueryCompiler:
         # setitem to selected rows/cols along with axis
         setitem_part_func = ff.setitem_part_func(axis=axis, value=value)
         input_dataframe.backend_frame = input_dataframe.backend_frame.apply_select_indice(
-            axis,
-            setitem_part_func,
-            [key],
-            None,
+            axis=axis,
+            func=setitem_part_func,
+            indices=None,
+            labels=[key],
             new_index=input_dataframe.backend_frame.index,
             new_columns=input_dataframe.backend_frame.columns,
             keep_reminding=True)
