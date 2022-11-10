@@ -1033,13 +1033,17 @@ class EagerFrame(BaseFrame):
             new_row_lengths = [len(range(*sub_indexer.indices(partition_row_lengths[sub_idx]))
                                    if isinstance(sub_indexer, slice) else sub_indexer)
                                for sub_idx, sub_indexer in row_partitions_list.items()]
-            new_index = self.index[
-                slice(row_positions.start, row_positions.stop, row_positions.step)
-                if is_range_like(row_positions) and row_positions.step > 0
-                else rows_index_numeric_sorted
-            ]
-            return (rows_index_numeric_sorted, rows_index_numeric_argsort_argsort,
-                    row_partitions_list, row_ascending, new_row_lengths, new_index)
+            try:
+                new_index = self.index[
+                    slice(row_positions.start, row_positions.stop, row_positions.step)
+                    if is_range_like(row_positions) and row_positions.step > 0
+                    else rows_index_numeric_sorted
+                ]
+            except IndexError:
+                raise IndexError(f"positional indexers are out-of-bounds")
+            else:
+                return (rows_index_numeric_sorted, rows_index_numeric_argsort_argsort,
+                        row_partitions_list, row_ascending, new_row_lengths, new_index)
 
         if row_positions is not None:
             rows_get_out = get_row_partitions_list(row_positions, rows_index_numeric)
@@ -1086,13 +1090,17 @@ class EagerFrame(BaseFrame):
                 col_idx = slice(col_positions.start, col_positions.stop, col_positions.step)
             else:
                 col_idx = columns_index_numeric_sorted
-            new_columns = self.columns[col_idx]
-            if self._dtypes is not None:
-                new_dtypes = self.dtypes.iloc[col_idx]
+            try:
+                new_columns = self.columns[col_idx]
+            except IndexError:
+                raise IndexError(f"positional indexers are out-of-bounds")
             else:
-                new_dtypes = None
-            return (columns_index_numeric_sorted, columns_index_numeric_argsort_argsort,
-                    col_partitions_list, col_ascending, new_col_widths, new_columns, new_dtypes)
+                if self._dtypes is not None:
+                    new_dtypes = self.dtypes.iloc[col_idx]
+                else:
+                    new_dtypes = None
+                return (columns_index_numeric_sorted, columns_index_numeric_argsort_argsort,
+                        col_partitions_list, col_ascending, new_col_widths, new_columns, new_dtypes)
 
         if col_positions is not None:
             cols_get_out = get_cols_partitions_list(col_positions, columns_index_numeric)
@@ -1158,7 +1166,7 @@ class EagerFrame(BaseFrame):
             ):
                 self.ops.flush(self.partitions)
             output_partitions = copy_module.deepcopy(self.partitions)
-        return EagerFrame(output_partitions, self._get_eagerframe_index(), self._get_eagerframe_columns())
+        return EagerFrame(output_partitions)
 
     @property
     def series_like(self):
@@ -1192,9 +1200,10 @@ class EagerFrame(BaseFrame):
                                                                by='split_pos', by_data=df_row_split_points)
         if self.ops is mp_ops and appending_frame.ops is mt_ops:
             appending_frame.partitions = mt_ops.convert_partitions(appending_frame.partitions)
-        self.partitions = np.concatenate([self.partitions, appending_frame.partitions], axis=1)
+        new_partitions = np.concatenate([self.partitions, appending_frame.partitions], axis=1)
         # update the coord of the appended new partitions
-        self.ops.reset_coord(self.partitions)
+        self.ops.reset_coord(new_partitions)
+        return EagerFrame(new_partitions)
 
     def broadcast_container_type(self, new_type):
         """Set the container_type of all partitions in the frame.

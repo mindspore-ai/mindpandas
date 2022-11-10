@@ -1870,7 +1870,9 @@ class QueryCompiler:
             new_columns_list = [i for i in frame.columns if i not in to_remove]
             result = frame.get_columns(new_columns_list, func=mask_func)
         else:
+            new_columns_list = None
             result = frame.copy()
+
         # lazily mask the frame based on given columns_index
         frame = result.view(columns_index=new_columns_list, func=mask_func)
         frame.index = new_index
@@ -2231,11 +2233,12 @@ class QueryCompiler:
         if isinstance(value, (mpd.DataFrame, mpd.Series)):
             if isinstance(value, mpd.Series):
                 value = value.to_frame(name=key)
-            input_dataframe.backend_frame.append_column(value.backend_frame)
-        else:
-            key_value = {key: value}
-            appending_frame = cls.create_backend_frame(key_value, None, None, None, None)
-            input_dataframe.backend_frame.append_column(appending_frame)
+            frame = input_dataframe.backend_frame.append_column(value.backend_frame)
+            return mpd.DataFrame(frame)
+        key_value = {key: value}
+        appending_frame = cls.create_backend_frame(key_value, None, None, None, None)
+        frame = input_dataframe.backend_frame.append_column(appending_frame)
+        return mpd.DataFrame(frame)
 
     @classmethod
     def invert(cls, input_dataframe):

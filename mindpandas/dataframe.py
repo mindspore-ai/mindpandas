@@ -567,33 +567,22 @@ class DataFrame:
         if (axis is not None and (columns is not None or index is not None)):
             raise TypeError("Cannot specify both 'axis' and any of 'index' or 'columns'")
 
-        args = locals()
-        kwargs = {k: v for k, v in args.items() if v is not None and k != "self"}
-        kwargs["inplace"] = False
+        if (columns is not None or index is not None):
+            if columns is not None and index is not None:
+                output_dataframe = self._qc.rename(input_dataframe=self, mapper=mapper, index=index,
+                                                   columns=columns, axis=axis, copy=copy, inplace=inplace,
+                                                   level=level, errors=errors)
 
-        if columns is not None or (mapper is not None and axis == 1):
-            new_columns = pandas.DataFrame(columns=self.columns).rename(**kwargs).columns
+            if columns is not None:
+                output_dataframe = self._qc.rename(input_dataframe=self, mapper=mapper, index=None, columns=columns,
+                                                   axis=axis, copy=copy, inplace=inplace, level=level, errors=errors)
+            if index is not None:
+                output_dataframe = self._qc.rename(input_dataframe=self, mapper=mapper, index=index, columns=None,
+                                                   axis=axis, copy=copy, inplace=inplace, level=level, errors=errors)
         else:
-            new_columns = None
-
-        if index is not None or (mapper is not None and axis == 0):
-            new_index = pandas.DataFrame(index=self.index).rename(**kwargs).index
-        else:
-            new_index = None
-
-        if inplace:
-            obj = self
-        else:
-            obj = self.copy()
-
-        if new_index is not None:
-            obj.backend_frame.index = new_index
-        if new_columns is not None:
-            obj.backend_frame.columns = new_columns
-
-        if not inplace:
-            return obj
-        return None
+            output_dataframe = self._qc.rename(input_dataframe=self, mapper=mapper, index=index, columns=columns,
+                                               axis=axis, copy=copy, inplace=inplace, level=level, errors=errors)
+        return output_dataframe
 
     def isna(self):
         output_dataframe = self._qc.isna(input_dataframe=self)
@@ -1367,7 +1356,7 @@ class DataFrame:
         output_dataframe = self._qc.reset_index(self, level, drop, inplace, col_level, col_fill)
         if inplace:
             self.backend_frame = output_dataframe.backend_frame
-            return self
+            return None
         return output_dataframe
 
     def applymap(self, func, na_action=None, **kwargs):
@@ -1549,7 +1538,8 @@ class DataFrame:
         value_len = len(value)
         if num_rows != value_len:
             raise ValueError(f"Length of values ({value_len}) does not match length of index ({num_rows})")
-        self._qc.append_column(self, key, value)
+        result = self._qc.append_column(self, key, value)
+        self.backend_frame = result.backend_frame
         return
 
     def __setitem__(self, key, value):
