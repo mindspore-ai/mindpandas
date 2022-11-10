@@ -549,7 +549,8 @@ class DataFrame:
             if isinstance(other, (mpd.DataFrame, pandas.DataFrame)):
                 if self.columns.equals(other.columns):
                     result = self._qc.math_op(self, op, other, axis, level, fill_value)
-                    if result.columns is not None and  'mixed' in result.index.inferred_type:
+                    if ((result.columns is not None and 'mixed' in result.index.inferred_type)
+                            or self.index.equals(other.index)):
                         return result
                     return result.sort_index()
         # Other situations use pandas for better performance
@@ -794,7 +795,8 @@ class DataFrame:
                                                       axis=axis,
                                                       level=level)
                 result = self._qc.df_comp_op(self, func, other, False, axis, level)
-                if result.columns is not None and  'mixed' in result.index.inferred_type:
+                if ((result.columns is not None and 'mixed' in result.index.inferred_type)
+                        or self.index.equals(other.index)):
                     return result
                 return result.sort_index()
             if is_scalar(other):
