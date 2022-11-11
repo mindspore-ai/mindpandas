@@ -453,7 +453,7 @@ class Series:
                                                  fill_value,
                                                  axis,
                                                  sort=False)
-                if 'mixed' in result.index.inferred_type:
+                if 'mixed' in result.index.inferred_type or self.index.equals(other.index):
                     return result
                 return result.sort_index()
             if is_scalar(other):
@@ -840,7 +840,7 @@ class Series:
 
             if isinstance(other, (mpd.Series, pandas.Series)):
                 result = self._qc.math_op(self, op, other, axis, level, fill_value)
-                if 'mixed' in result.index.inferred_type:
+                if 'mixed' in result.index.inferred_type or self.index.equals(other.index):
                     return result
                 return result.sort_index()
 
