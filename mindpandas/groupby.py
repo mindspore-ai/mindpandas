@@ -365,10 +365,16 @@ class DataFrameGroupBy:
 
     def all(self, skipna=True, **kwargs):
         kwargs['skipna'] = skipna
+        if self._validate_dtypes():
+            return self._qc.groupby_default_to_pandas(self, 'all', force_series=self._is_series,
+                                                      **kwargs)
         return self.func_wrapper('all', **kwargs)
 
     def any(self, skipna=True, **kwargs):
         kwargs['skipna'] = skipna
+        if self._validate_dtypes():
+            return self._qc.groupby_default_to_pandas(self, 'any', force_series=self._is_series,
+                                                      **kwargs)
         return self.func_wrapper('any', **kwargs)
 
     def backfill(self, **kwargs):
@@ -396,6 +402,9 @@ class DataFrameGroupBy:
                                                   **kwargs)
 
     def count(self, **kwargs):
+        if self._validate_dtypes():
+            return self._qc.groupby_default_to_pandas(self, 'count', force_series=self._is_series,
+                                                      **kwargs)
         return self.func_wrapper('count', **kwargs)
 
     def cumcount(self, **kwargs):
