@@ -28,7 +28,7 @@ init_vars() {
     PROJECT_BASEDIR=$(realpath "$(dirname "$0")")
     VERSION="$("$PYTHON" -c 'import platform; print(platform.python_version())')"
     PYTHON_VERSION_NUM=$(echo "$VERSION" | awk -F'.' '{print $1$2}')
-    DIST_EXECUTOR_MD5="7024fb31d527aaaf60cb145b4aed7235"
+    DIST_EXECUTOR_MD5="a60258bdacde13009178c50546ebdc7a"
 }
 
 rename_wheel() {
