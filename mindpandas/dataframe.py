@@ -875,6 +875,9 @@ class DataFrame:
 
         Then combine columnwise using func to merge columns
         """
+        if self.empty:
+            return other.copy()
+
         if not isinstance(other, DataFrame):
             raise TypeError(f"Can only combine two DataFrames, a {type(other)} was passed")
 
