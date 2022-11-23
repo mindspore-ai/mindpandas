@@ -14,7 +14,7 @@
 # ============================================================================
 """Mindpandas config file"""
 import mindpandas.backend.eager.eager_backend as eager_backend
-import mindpandas.iternal_config as i_config
+import mindpandas.internal_config as i_config
 
 __all__ = ['set_concurrency_mode', 'get_concurrency_mode', 'set_partition_shape', 'get_partition_shape',
            'set_benchmark_mode', 'get_benchmark_mode',
@@ -48,12 +48,12 @@ def set_concurrency_mode(mode, **kwargs):
     if mode not in support_mode:
         raise ValueError(f"Mode {mode} is not supported.")
 
+    i_config.set_concurrency_mode(mode)
+
     if mode == 'multiprocess':
-        i_config.set_concurrency_mode('yr')
         address = kwargs.get('address', None)
         eager_backend.set_yr_backend(server_address=address, ds_address=address)
     elif mode == 'multithread':
-        i_config.set_concurrency_mode(mode)
         eager_backend.set_python_backend()
 
 
@@ -70,8 +70,6 @@ def get_concurrency_mode():
         >>> mode = pd.get_concurrency_mode()
     """
     mode = i_config.get_concurrency_mode()
-    if mode == 'yr':
-        mode = 'multiprocess'
     return mode
 
 def set_benchmark_mode(mode):
@@ -267,6 +265,4 @@ def get_adaptive_partition_shape(mode):
     support_mode = ['multithread', 'multiprocess']
     if mode not in support_mode:
         raise ValueError(f"Mode {mode} is not supported.")
-    if mode == 'multiprocess':
-        mode = 'yr'
     return i_config.get_adaptive_partition_shape(mode)
