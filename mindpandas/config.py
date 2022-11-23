@@ -77,14 +77,15 @@ def set_benchmark_mode(mode):
     Users can select if they want to turn on benchmarkmode for performance analysis. Default mode is False.
 
     Args:
-        mode(str): This parameter can be set to True or False.
+        mode(bool): This parameter can be set to True or False.
 
     Raises:
         ValueError: If mode is not True or False.
 
     Examples:
         >>> # Change the mode to True..
-        >>> mindspore.pandas.config.set_benchmark_mode(True)
+        >>> import mindpandas as pd
+        >>> pd.set_benchmark_mode(True)
     """
     support_mode = [True, False]
     if mode not in support_mode:
@@ -98,11 +99,12 @@ def get_benchmark_mode():
     Get the current benchmark mode.
 
     Returns:
-        str, current benchmark mode.
+        bool, current benchmark mode.
 
     Examples:
         >>> # Get the current benchmark mode.
-        >>> mode = mindspore.pandas.config.get_benchmark_mode
+        >>> import mindpandas as pd
+        >>> mode = pd.get_benchmark_mode()
     """
     return i_config.get_benchmark_mode()
 
