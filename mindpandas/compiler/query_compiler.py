@@ -371,11 +371,11 @@ class QueryCompiler:
                     # multiprocess_operators groupby_map()
                     # Thus, reset_index() put the index to column and then drop it later
                     dict_values = list(temp_by.values())
-                    input_dataframe = input_dataframe.rename(index=temp_by)
-                    input_dataframe = input_dataframe.loc[dict_values]  # loc mess up the partitions sizes
-                    input_dataframe = input_dataframe.reset_index()
-                    index_reseted = input_dataframe.columns[0]
-                    by_dataframe = input_dataframe.backend_frame.get_columns(index_reseted, func=mask_func)
+                    renamed_input_dataframe = input_dataframe.rename(index=temp_by)
+                    filtered_input_dataframe = renamed_input_dataframe.loc[dict_values]  # loc mess up the partitions sizes
+                    filtered_input_dataframe = filtered_input_dataframe.reset_index()
+                    index_reseted = filtered_input_dataframe.columns[0]
+                    by_dataframe = filtered_input_dataframe.backend_frame.get_columns(index_reseted, func=mask_func)
                     by_names = index_reseted
                     is_mapping = True
 
@@ -1213,12 +1213,17 @@ class QueryCompiler:
         group_keys = input_dataframe.kwargs['group_keys']
         observed = input_dataframe.kwargs['observed']
         dropna = input_dataframe.kwargs['dropna']
-        if isinstance(by, list) and all(isinstance(n, mpd.Series) for n in by):
-            by = [x.to_pandas() for x in by]
-        elif isinstance(by, mpd.Series):
-            by = by.to_pandas()
 
-        if not force_series or not get_item_key:
+        def process_by(by):
+            if isinstance(by, list) and all(isinstance(n, mpd.Series) for n in by):
+                by = [x.to_pandas() for x in by]
+            elif isinstance(by, mpd.Series):
+                by = by.to_pandas()
+            return by
+
+        by = process_by(by)
+
+        if not force_series or get_item_key is None:
             pandas_groupbyframe = input_dataframe.backend_frame \
                 .to_pandas(force_series=force_series) \
                 .groupby(by, axis=axis,
@@ -1238,8 +1243,12 @@ class QueryCompiler:
                          group_keys=group_keys,
                          observed=observed,
                          dropna=dropna)
-        if get_item_key:    # get item case
+
+        if get_item_key is not None:
+            if isinstance(get_item_key, mpd.Series):
+                get_item_key = get_item_key.to_pandas()
             pandas_groupbyframe = pandas_groupbyframe[get_item_key]
+
         for param_name, param in kwargs.items():
             if hasattr(param, "backend_frame"):
                 kwargs[param_name] = param.backend_frame.to_pandas()
@@ -1251,7 +1260,7 @@ class QueryCompiler:
             return mpd.DataFrame(result)
 
         try:
-            groupby_attr = getattr(pandas.core.groupby.DataFrameGroupBy, groupby_method_name)
+            groupby_attr = getattr(type(pandas_groupbyframe), groupby_method_name)
         except AttributeError as err:
             raise RuntimeError(f"{groupby_method_name} not supported") from err
 
@@ -1269,8 +1278,9 @@ class QueryCompiler:
         if isinstance(result, pandas.Series):
             return mpd.Series(result)
         if isinstance(result, pandas.DataFrame):
+            if result.index.name in result.columns:
+                result = result.drop(result.index.name, axis=1)
             return mpd.DataFrame(result)
-
         return result
 
     @classmethod
