@@ -141,6 +141,14 @@ class TestUtil:
         df = module.DataFrame(data)
         return df
 
+    def create_df_array_with_nan(self, module):
+        np.random.seed(100)
+        arr = np.concatenate((
+            np.random.randint(1000, size=int(self.rows * self.columns * (1 - 0.3))),
+            np.full(shape=int(self.rows * self.columns * 0.3), fill_value=np.nan),), axis=0)
+        np.random.shuffle(arr)
+        return module.DataFrame(arr.reshape(self.rows, self.columns), columns=[str(c) for c in range(self.columns)])
+
     def create_df_bool(self, module):
         """
         Return a boolean DataFrame that is from numpy.array.
@@ -815,7 +823,12 @@ class TestUtil:
         if hasattr(df, 'equals'):
             if compare_pd_ms:
                 if hasattr(df_ms, 'to_pandas'):
-                    assert df.equals(df_ms.to_pandas())
+                    df_ms_to_pandas = df_ms.to_pandas()
+                    try:
+                        assert df.equals(df_ms_to_pandas)
+                    except Exception: # pylint: disable=broad-except
+                        df_diff = pd.concat([df, df_ms_to_pandas]).drop_duplicates(keep=False)
+                        assert df_diff.empty is True
                 elif isinstance(df, type(df_ms)):
                     # print(type(df))
                     assert df.equals(df_ms)

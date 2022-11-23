@@ -126,6 +126,22 @@ def test_setitem():
         df[2:4] = 0
         return df
 
+    def hash_item(val, item_size=10000000, offset=0):
+        if isinstance(val, str):
+            return abs(int(hashlib.sha256(val.encode('utf-8')).hexdigest(), 16)) % item_size
+        return abs(hash(val)) % item_size + offset
+
+    def test_setitem_with_list_key_scalar_value(df):
+        col_list = [str(c) for c in range(len(df.columns)//2)]
+        df[col_list] = 1
+        return df
+
+    def test_setitem_with_list_key_array_value(df):
+        col_list = [str(c) for c in range(len(df.columns)//2)]
+        df[col_list] = df[col_list].applymap(hash_item)
+        return df
+
+
     TESTUTIL.compare(test_setitem_column_wise_small, create_fn=TESTUTIL.create_df_small)
     TESTUTIL.compare(test_setitem_column_wise_ndarray, create_fn=TESTUTIL.create_df_array)
     TESTUTIL.compare(test_setitem_column_wise_series, create_fn=TESTUTIL.create_df_array)
@@ -141,3 +157,5 @@ def test_setitem():
     TESTUTIL.compare(test_setitem_to_const_new_column)
     TESTUTIL.compare(test_setitem_empty_df_to_series_fn, create_fn=create_two_dfs)
     TESTUTIL.compare(test_setitem_by_slice, create_fn=TESTUTIL.create_df_array)
+    TESTUTIL.compare(test_setitem_with_list_key_scalar_value, create_fn=TESTUTIL.create_df_array_with_nan)
+    TESTUTIL.compare(test_setitem_with_list_key_array_value, create_fn=TESTUTIL.create_df_array_with_nan)

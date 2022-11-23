@@ -292,7 +292,8 @@ class EagerFrame(BaseFrame):
         col_positions = args[0]
         value = args[2]
         # if row_positions is not in order, need to re-order value as well
-        if len(row_positions) >= 1 and not np.all(row_positions[1:] > row_positions[:-1]):
+        if (not isinstance(row_positions, range) and len(row_positions) >= 1
+                and not np.all(row_positions[1:] > row_positions[:-1])):
             if not isinstance(row_positions, np.ndarray):
                 row_positions = np.array(row_positions)
             rows_index_argsort = row_positions.argsort()
@@ -314,10 +315,12 @@ class EagerFrame(BaseFrame):
                 for j, value_c in enumerate(list(part_col_locs.values())):
                     if isinstance(value_r, slice):
                         len_value_r = compute_sliced_len(value_r, self.partitions[i][j].num_rows)
+                    else:
+                        len_value_r = len(value_r)
                     if isinstance(value_c, slice):
                         len_value_c = compute_sliced_len(value_c, self.partitions[i][j].num_cols)
                     else:
-                        len_value_r, len_value_c = len(value_r), len(value_c)
+                        len_value_c = len(value_c)
                     item[i][j] = value_sorted[pre_r:pre_r + len_value_r, pre_c:pre_c + len_value_c]
                     pre_c += len_value_c
                 pre_r += len_value_r
@@ -924,15 +927,15 @@ class EagerFrame(BaseFrame):
                 pos += row_df_lens[i]
         return self
 
-    def apply_select_indice(self, axis, func, labels, indices, new_index, new_columns, keep_reminding=False):
+    def apply_select_indice(self, axis, func, indices, labels, new_index, new_columns, keep_reminding=False):
         """
         Apply a function across an entire axis for a subset of the data
 
         Parameters:
         axis (int, {0,1}): 0 for column partition, 1 for row partition
         func (callable): The function to apply
-        labels (list-like): the index/columns keys to apply over, default: None
         indices (list-like): the numeric indices to apply over, default: None
+        labels (list-like): the index/columns keys to apply over, default: None
         new_index (list-like): the new index of the result
         new_columns (list-like): the new columns of the result
         keep_reminding (boolean): whetheror not to drop the data that is not applied over, default: False
@@ -941,7 +944,13 @@ class EagerFrame(BaseFrame):
             EagerFrame: a new EagerFrame
 
         """
-        assert labels is not None or indices is not None
+        assert indices is not None or labels is not None
+
+        if new_index is None:
+            new_index = self.index if axis == 1 else None
+        if new_columns is None:
+            new_columns = self.columns if axis == 0 else None
+
         old_index = self.index if axis else self.columns
         if labels is not None:
             indices = old_index.get_indexer_for(labels)
@@ -950,17 +959,9 @@ class EagerFrame(BaseFrame):
                                                                         keep_reminding=keep_reminding)
         # overwrite self.partitions
         self.partitions = output_partitions
-        ## need to be added when we can initialize eager_frame with index and column
-        if new_index is None:
-            new_index = self.index if axis == 1 else None
-        if new_columns is None:
-            new_columns = self.columns if axis == 0 else None
         lengths_objs = {
-            axis: [len(labels)]
-                  if not keep_reminding
-                  else [self._partition_rows, self._partition_cols][axis],
-            axis ^ 1: [self._partition_rows, self._partition_cols][axis ^ 1],
-            }
+            axis: [len(labels)] if not keep_reminding else [self._partition_rows, self._partition_cols][axis],
+            axis ^ 1: [self._partition_rows, self._partition_cols][axis ^ 1]}
         return EagerFrame(self.partitions, new_index, new_columns, lengths_objs[0], lengths_objs[1])
 
     def to_labels(self, column_list: list, func=None):
