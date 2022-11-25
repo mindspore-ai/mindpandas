@@ -49,7 +49,7 @@ class SinglethreadOperator:
         return output_partitions
 
     @classmethod
-    def injective_map(cls, partitions, cond_partitions, other, func, is_scalar):
+    def injective_map(cls, partitions, cond_partitions, other, func, other_is_scalar):
         '''Performs singlethreaded injective mapping.'''
         def injective_map_no_cond(partitions, other, func, is_scalar):
             if is_scalar:
@@ -78,7 +78,7 @@ class SinglethreadOperator:
 
         lrows, lcols = partitions.shape
         if cond_partitions is None:
-            return injective_map_no_cond(partitions, other, func, is_scalar)
+            return injective_map_no_cond(partitions, other, func, other_is_scalar)
 
         is_broadcast = lcols > 1 and cond_partitions.shape[1] == 1
         def injective_map_with_cond(partitions, cond_partitions, other, func, is_scalar):
@@ -106,7 +106,7 @@ class SinglethreadOperator:
                     ]
                 )
             return output_partitions
-        return injective_map_with_cond(partitions, cond_partitions, other, func, is_scalar)
+        return injective_map_with_cond(partitions, cond_partitions, other, func, other_is_scalar)
 
     @classmethod
     def reduce(cls, partitions, reduce_func, axis=0, concat_axis=None):

@@ -1,9 +1,8 @@
 """Multiprocess Operator Class"""
 import concurrent.futures
-import warnings
-from functools import partial, wraps
-from collections import defaultdict
 import hashlib
+from collections import defaultdict
+from functools import partial, wraps
 
 import numpy as np
 import pandas
@@ -38,13 +37,49 @@ def wait_computations_finished(func):
     return wait
 
 
-def determine_if_multithreaded_partitions(partitions, is_scalar=False):
-    return not is_scalar and partitions is not None and len(partitions) > 0 and not isinstance(partitions[0][0],
-                                                                                               Partition)
+def contain_multiprocess_partition(partitions):
+    return partitions is not None and len(partitions) > 0 and isinstance(partitions[0][0], Partition)
 
 
 class MultiprocessOperator(SinglethreadOperator):
     """Multiprocess Operator Class"""
+
+    @classmethod
+    def wait_ready(cls, pending_ids):
+        while pending_ids:
+            ready_ids, pending_ids = get_scheduler().wait(pending_ids)
+            for ready_id in ready_ids:
+                yield ready_id
+
+    @classmethod
+    def ready_parts(cls, partitions):
+        input_futures = {part.data_id: part for row_parts in partitions for part in row_parts}
+        pending_ids = list(input_futures.keys())
+        for ready_id in cls.wait_ready(pending_ids):
+            if ready_id not in input_futures:
+                raise ValueError(f'unexpected future id {ready_id}')
+            yield input_futures[ready_id]
+
+    @classmethod
+    def ready_axis_parts(cls, partitions, axis):
+        """Return ready parts along the given axis"""
+        input_futures = {part.data_id: part for row_parts in partitions for part in row_parts}
+        pending_ids_mask = np.zeros(partitions.shape)
+        pending_ids = list(input_futures.keys())
+        for ready_id in cls.wait_ready(pending_ids):
+            if ready_id not in input_futures:
+                raise ValueError(f'unexpected future id {ready_id}')
+            coord = input_futures[ready_id].coord
+            pending_ids_mask[coord] = 1
+            if axis == 0:
+                idx = coord[1]
+                if pending_ids_mask[:, idx].all():
+                    yield idx, partitions[:, idx]
+            elif axis == 1:
+                idx = coord[0]
+                if pending_ids_mask[idx, :].all():
+                    yield idx, partitions[idx, :]
+
     @classmethod
     def append_func_queue(cls, partitions, func, *args, **kwargs):
         output_partitions = np.ndarray(partitions.shape, dtype=object)
@@ -71,12 +106,11 @@ class MultiprocessOperator(SinglethreadOperator):
                     output_partitions[part.coord] = part
 
         pending_ids = list(input_futures.keys())
-        while pending_ids:
-            ready_ids, pending_ids = get_scheduler().wait(pending_ids)
-            for fid in ready_ids:
-                if fid in input_futures:
-                    output_part = input_futures[fid].apply_queue(pass_coord, **kwargs)
-                    output_partitions[output_part.coord] = output_part
+        for fid in cls.wait_ready(pending_ids):
+            if fid not in input_futures:
+                raise ValueError(f'unexpected future id {fid}')
+            output_part = input_futures[fid].apply_queue(pass_coord, **kwargs)
+            output_partitions[output_part.coord] = output_part
         return output_partitions
 
     @classmethod
@@ -90,94 +124,74 @@ class MultiprocessOperator(SinglethreadOperator):
 
     @classmethod
     @wait_computations_finished
-    def injective_map(cls, partitions, cond_partitions, other, func, is_scalar):
-        #clear func_queue for cond_partiitons
-        if cond_partitions is not None and isinstance(cond_partitions, np.ndarray):
-            cond_partitions = cls.apply_func_queue(cond_partitions)
-        #clear func queue for other
-        if other is not None and isinstance(other, np.ndarray):
-            other = cls.apply_func_queue(other)
-        #clear func_queue for partitions
+    def injective_map(cls, partitions, cond_partitions, other, func, other_is_scalar):
+        if cond_partitions is not None:
+            return cls.injective_map_with_cond(partitions, cond_partitions, other, func, other_is_scalar)
+
+        # clear func_queue for partitions
         partitions = cls.apply_func_queue(partitions)
         inj_func_id = get_scheduler().put(func)
         output_partitions = np.ndarray(partitions.shape, dtype=object)
-        if cond_partitions is None:
-            # Inspect whether 'other' consists of dspartitions or partitions
-            other_contains_multithreaded_partitions = determine_if_multithreaded_partitions(other, is_scalar)
-            input_futures = {part.data_id: part for row_parts in partitions for part in row_parts}
-            pending_ids = list(input_futures.keys())
-            while pending_ids:
-                ready_ids, pending_ids = get_scheduler().wait(pending_ids)
-                def injective_map_no_cond():
-                    for fid in ready_ids:
-                        if fid not in  input_futures:
-                            continue
-                        part = input_futures[fid]
-                        if is_scalar:
-                            # Use case: partitions = df or series, other = scalar
-                            output_part = part.apply(inj_func_id, other)
-                        elif partitions.shape == other.shape:
-                            # Use case: partitions = df or series, other = same data type
-                            coord = part.coord
-                            if other_contains_multithreaded_partitions:
-                                output_part = part.apply(inj_func_id, other[coord].get())
-                            else:
-                                output_part = part.apply(inj_func_id, other[coord].data_id)
-                        elif partitions.shape[0] == other.shape[0] and len(other.shape) > 1 and other.shape[1] == 1:
-                            # Use case: partitions = df, other = series
-                            # Broadcasts series across columns of dataframe
-                            coord = (part.coord[0], 0)
-                            if other_contains_multithreaded_partitions:
-                                output_part = part.apply(inj_func_id, other[coord].get())
-                            else:
-                                output_part = part.apply(inj_func_id, other[coord].data_id)
-                        else:
-                            raise ValueError("There are too many partitions or the partitions are misaligned.")
-                        output_partitions[output_part.coord] = output_part
-                injective_map_no_cond()
+
+        # other is scalar
+        if other_is_scalar:
+            for part in cls.ready_parts(partitions):
+                output_part = part.apply(inj_func_id, other)
+                output_partitions[output_part.coord] = output_part
             return output_partitions
 
+        # other is mpd.DataFrame.backend_frame.partitions or mpd.Series.backend_frame.partitions
+        has_data_id = contain_multiprocess_partition(other)
+        if has_data_id:
+            # clear func queue for other
+            other = cls.apply_func_queue(other)
+
+        if partitions.shape == other.shape:
+            for part in cls.ready_parts(partitions):
+                coord = part.coord
+                other_data = other[coord].data_id if has_data_id else other[coord].get()
+                output_part = part.apply(inj_func_id, other_data)
+                output_partitions[output_part.coord] = output_part
+        elif partitions.shape[0] == other.shape[0] and other.shape[1] == 1:
+            # Use case: partitions.shape = m * n, other.shape = m * 1
+            # Broadcasts series across columns of dataframe
+            for part in cls.ready_parts(partitions):
+                coord = (part.coord[0], 0)
+                other_data = other[coord].data_id if has_data_id else other[coord].get()
+                output_part = part.apply(inj_func_id, other_data)
+                output_partitions[output_part.coord] = output_part
+        else:
+            raise ValueError("There are too many partitions or the partitions are misaligned.")
+        return output_partitions
+
+    @classmethod
+    @wait_computations_finished
+    def injective_map_with_cond(cls, partitions, cond_partitions, other, func, other_is_scalar):
+        """injective map with cond"""
+        # clear func_queue for partitions
+        partitions = cls.apply_func_queue(partitions)
+        if not other_is_scalar:
+            # other is mpd.DataFrame.backend_frame.partitions or mpd.Series.backend_frame.partitions
+            # clear func_queue for cond_partitions
+            cond_partitions = cls.apply_func_queue(cond_partitions)
+        inj_func_id = get_scheduler().put(func)
+        output_partitions = np.ndarray(partitions.shape, dtype=object)
+
         # When series pass same cond_partitions to each column partition of partitions
-        is_broadcast = bool(cond_partitions.shape[1] == 1 and partitions.shape[1] > 0)
-        # Inspect whether 'cond' and 'other' consists of dspartitions or partitions
-        cond_contains_multithreaded_partitions = determine_if_multithreaded_partitions(cond_partitions)
-        other_contains_multithreaded_partitions = determine_if_multithreaded_partitions(other, is_scalar)
+        is_broadcast = partitions.shape[1] > 0 and cond_partitions.shape[1] == 1
+        cond_has_data_id = contain_multiprocess_partition(cond_partitions)
 
-        input_futures = {part.data_id: part for row_parts in partitions for part in row_parts}
-        pending_ids = list(input_futures.keys())
-        while pending_ids:
-            ready_ids, pending_ids = get_scheduler().wait(pending_ids)
-            def injective_map_with_cond():
-                for fid in ready_ids:
-                    if fid not in input_futures:
-                        continue
-                    part = input_futures[fid]
-                    if is_broadcast:
-                        coord = (part.coord[0], 0)
-                    else:
-                        coord = part.coord
-                    if is_scalar:
-                        if cond_contains_multithreaded_partitions:
-                            output_part = part.apply(inj_func_id, cond_partitions[coord].get(), other)
-                        else:
-                            output_part = part.apply(inj_func_id, cond_partitions[coord].data_id, other)
-                    else:
-                        if cond_contains_multithreaded_partitions:
-                            if other_contains_multithreaded_partitions:
-                                output_part = part.apply(inj_func_id, cond_partitions[coord].get(), other[coord].get())
-                            else:
-                                output_part = part.apply(inj_func_id, cond_partitions[coord].get(),
-                                                         other[coord].data_id)
-                        else:
-                            if other_contains_multithreaded_partitions:
-                                output_part = part.apply(inj_func_id, cond_partitions[coord].data_id,
-                                                         other[coord].get())
-                            else:
-                                output_part = part.apply(inj_func_id, cond_partitions[coord].data_id,
-                                                         other[coord].data_id)
-                    output_partitions[output_part.coord] = output_part
-
-            injective_map_with_cond()
+        for part in cls.ready_parts(partitions):
+            coord = (part.coord[0], 0) if is_broadcast else part.coord
+            cond_data = cond_partitions[coord].data_id if cond_has_data_id else cond_partitions[coord].get()
+            if other_is_scalar:
+                other_data = other
+            elif contain_multiprocess_partition(other):
+                other_data = other[coord].data_id
+            else:
+                other_data = other[coord].get()
+            output_part = part.apply(inj_func_id, cond_data, other_data)
+            output_partitions[output_part.coord] = output_part
         return output_partitions
 
     @classmethod
@@ -188,38 +202,17 @@ class MultiprocessOperator(SinglethreadOperator):
 
         if concat_axis is None:
             concat_axis = axis
-        if axis == 0:
-            output_partitions = np.ndarray((1, partitions.shape[1]), dtype=object)
-        else:
-            output_partitions = np.ndarray((partitions.shape[0], 1), dtype=object)
-        input_futures = {part.data_id: part for row_parts in partitions for part in row_parts}
 
-        pending_ids_mask = np.zeros(partitions.shape)
-        pending_ids = list(input_futures.keys())
-        while pending_ids:
-            ready_ids, pending_ids = get_scheduler().wait(pending_ids)
-            for fid in ready_ids:
-                if fid in input_futures:
-                    coord = input_futures[fid].coord
-                    pending_ids_mask[coord] = 1
-                    if axis == 0:
-                        idx = coord[1]
-                        # start reduction as soon as whole column of partitions are ready
-                        if pending_ids_mask[:, idx].all():
-                            axis_id_list = [part.get_updated_partition().data_id for part in partitions[:, idx]]
-                            future_id, meta_data_id = get_scheduler().remote(rf()._remote_map_axis, axis_id_list,
-                                                                             reduce_func_id, axis, concat_axis)
-                            output_part = Partition.put(data_id=future_id, meta_id=meta_data_id, coord=(0, idx))
-                            output_partitions[output_part.coord] = output_part
-                    elif axis == 1:
-                        idx = coord[0]
-                        if pending_ids_mask[idx, :].all():
-                            axis_id_list = [part.get_updated_partition().data_id for part in partitions[idx, :]]
-                            future_id, meta_data_id = get_scheduler().remote(rf()._remote_map_axis, axis_id_list,
-                                                                             reduce_func_id, axis, concat_axis)
-                            output_part = Partition.put(data_id=future_id, meta_id=meta_data_id, coord=(idx, 0))
-                            output_partitions[output_part.coord] = output_part
+        output_partitions_shape = (1, partitions.shape[1]) if axis == 0 else (partitions.shape[0], 1)
+        output_partitions = np.ndarray(output_partitions_shape, dtype=object)
 
+        for idx, axis_parts in cls.ready_axis_parts(partitions, axis):
+            axis_id_list = [part.get_updated_partition().data_id for part in axis_parts]
+            future_id, meta_data_id = get_scheduler().remote(rf()._remote_map_axis, axis_id_list, reduce_func_id, axis,
+                                                             concat_axis)
+            coord = (0, idx) if axis == 0 else (idx, 0)
+            output_part = Partition.put(data_id=future_id, meta_id=meta_data_id, coord=coord)
+            output_partitions[coord] = output_part
         return output_partitions
 
     @classmethod
@@ -236,7 +229,7 @@ class MultiprocessOperator(SinglethreadOperator):
         cols = merge_rows(partitions)
         other_cols = merge_rows(other_df_partitions)
 
-        return cls.injective_map(cols, other_cols, None, combine_cols, is_scalar=True)
+        return cls.injective_map(cols, other_cols, None, combine_cols, other_is_scalar=True)
 
     @classmethod
     def partition_pandas(cls, df, row_slices, col_slices, container_type=None):
@@ -282,6 +275,14 @@ class MultiprocessOperator(SinglethreadOperator):
     @wait_computations_finished
     def axis_repartition(cls, parts, axis=0, mblock_size=1, by='size', by_data=None):
         repart_range_dict, axis_size = cls.get_axis_repart_range(parts, axis, mblock_size, by=by, by_data=by_data)
+
+        slice_tasks = {}
+        for idx, axis_parts in cls.ready_axis_parts(parts, axis):
+            axis_id_list = [part.get_updated_partition().data_id for part in axis_parts]
+            future_list_id, meta_data_list_id = get_scheduler().remote(rf()._remote_concat_segments, axis_id_list, axis,
+                                                                       repart_range_dict)
+            slice_tasks[future_list_id] = (idx, meta_data_list_id)
+
         if axis == 0:
             new_shape_row = axis_size
             new_shape_col = parts.shape[1]
@@ -289,55 +290,19 @@ class MultiprocessOperator(SinglethreadOperator):
             new_shape_row = parts.shape[0]
             new_shape_col = axis_size
         output_partitions = np.ndarray((new_shape_row, new_shape_col), dtype=object)
-        input_futures = {part.data_id: part for row_parts in parts for part in row_parts}
-        slice_tasks = {}
-        pending_ids_mask = np.zeros(parts.shape)
-        pending_ids = list(input_futures.keys())
-        while pending_ids:
-            ready_ids, pending_ids = get_scheduler().wait(pending_ids)
-            for fid in ready_ids:
-                if fid in input_futures:
-                    coord = input_futures[fid].coord
-                    pending_ids_mask[coord] = 1
-                    if axis == 0:
-                        idx = coord[1]
-                        # start concat as soon as whole column of partitions are ready
-                        if pending_ids_mask[:, idx].all():
-                            # If the original data cannot be deserialized with zero-copy,
-                            # then each worker needs a copy of the original data,
-                            # so limit the parallelism to improve performance and avoid OOM
-                            axis_id_list = [part.get_updated_partition().data_id for part in parts[:, idx]]
-                            future_list_id, meta_data_list_id = get_scheduler().remote(rf()._remote_concat_segments,
-                                                                                       axis_id_list,
-                                                                                       axis,
-                                                                                       repart_range_dict)
-                            slice_tasks[future_list_id] = (idx, meta_data_list_id)
-                    elif axis == 1:
-                        idx = coord[0]
-                        if pending_ids_mask[idx, :].all():
-                            axis_id_list = [part.get_updated_partition().data_id for part in parts[idx, :]]
-                            future_list_id, meta_data_list_id = get_scheduler().remote(rf()._remote_concat_segments,
-                                                                                       axis_id_list,
-                                                                                       axis,
-                                                                                       repart_range_dict)
-                            slice_tasks[future_list_id] = (idx, meta_data_list_id)
-
         pending_ids = list(slice_tasks.keys())
-        while pending_ids:
-            ready_ids, pending_ids = get_scheduler().wait(pending_ids)
-            for fid in ready_ids:
-                idx, meta_data_list_id = slice_tasks[fid]
-                future_list = get_scheduler().get(fid)[0]
-                meta_data_list = get_scheduler().get(meta_data_list_id)[0]
-                if axis == 0:
-                    for row, (future_id, meta_data_id) in enumerate(zip(future_list, meta_data_list)):
-                        output_part = Partition.put(data_id=future_id, meta_id=meta_data_id, coord=(row, idx))
-                        output_partitions[output_part.coord] = output_part
-                else:
-                    for col, (future_id, meta_data_id) in enumerate(zip(future_list, meta_data_list)):
-                        output_part = Partition.put(data_id=future_id, meta_id=meta_data_id, coord=(idx, col))
-                        output_partitions[output_part.coord] = output_part
-
+        for fid in cls.wait_ready(pending_ids):
+            idx, meta_data_list_id = slice_tasks[fid]
+            future_list = get_scheduler().get(fid)[0]
+            meta_data_list = get_scheduler().get(meta_data_list_id)[0]
+            if axis == 0:
+                for row, (future_id, meta_data_id) in enumerate(zip(future_list, meta_data_list)):
+                    output_part = Partition.put(data_id=future_id, meta_id=meta_data_id, coord=(row, idx))
+                    output_partitions[output_part.coord] = output_part
+            else:
+                for col, (future_id, meta_data_id) in enumerate(zip(future_list, meta_data_list)):
+                    output_part = Partition.put(data_id=future_id, meta_id=meta_data_id, coord=(idx, col))
+                    output_partitions[output_part.coord] = output_part
         return output_partitions
 
     @classmethod
@@ -346,40 +311,15 @@ class MultiprocessOperator(SinglethreadOperator):
         # similar to reduce, except no apply_func
         partitions = cls.apply_func_queue(partitions)
 
-        if axis == 0:
-            output_partitions = np.ndarray((1, partitions.shape[1]), dtype=object)
-        else:
-            output_partitions = np.ndarray((partitions.shape[0], 1), dtype=object)
-        input_futures = {part.data_id: part for row_parts in partitions for part in row_parts}
+        output_partitions_shape = (1, partitions.shape[1]) if axis == 0 else (partitions.shape[0], 1)
+        output_partitions = np.ndarray(output_partitions_shape, dtype=object)
 
-        pending_ids_mask = np.zeros(partitions.shape)
-        pending_ids = list(input_futures.keys())
-        while pending_ids:
-            ready_ids, pending_ids = get_scheduler().wait(pending_ids)
-            for fid in ready_ids:
-                if fid in input_futures:
-                    coord = input_futures[fid].coord
-                    pending_ids_mask[coord] = 1
-                    if axis == 0:
-                        idx = coord[1]
-                        # start concat as soon as whole column of partitions are ready
-                        if pending_ids_mask[:, idx].all():
-                            axis_id_list = [part.get_updated_partition().data_id for part in partitions[:, idx]]
-                            future_id, meta_data_id = get_scheduler().remote(rf()._remote_concat_axis,
-                                                                             axis_id_list,
-                                                                             axis)
-                            output_part = Partition.put(data_id=future_id, meta_id=meta_data_id, coord=(0, idx))
-                            output_partitions[output_part.coord] = output_part
-                    elif axis == 1:
-                        idx = coord[0]
-                        if pending_ids_mask[idx, :].all():
-                            axis_id_list = [part.get_updated_partition().data_id for part in partitions[idx, :]]
-                            future_id, meta_data_id = get_scheduler().remote(rf()._remote_concat_axis,
-                                                                             axis_id_list,
-                                                                             axis)
-                            output_part = Partition.put(data_id=future_id, meta_id=meta_data_id, coord=(idx, 0))
-                            output_partitions[output_part.coord] = output_part
-
+        for idx, axis_parts in cls.ready_axis_parts(partitions, axis):
+            axis_id_list = [part.get_updated_partition().data_id for part in axis_parts]
+            future_id, meta_data_id = get_scheduler().remote(rf()._remote_concat_axis, axis_id_list, axis)
+            coord = (0, idx) if axis == 0 else (idx, 0)
+            output_part = Partition.put(data_id=future_id, meta_id=meta_data_id, coord=coord)
+            output_partitions[coord] = output_part
         return output_partitions
 
     @classmethod
@@ -403,19 +343,15 @@ class MultiprocessOperator(SinglethreadOperator):
         col_id_mapping = {v: k for k, v in enumerate(columns_partition_index_dict)}
 
         pending_ids = list(input_futures.keys())
-        while pending_ids:
-            ready_ids, pending_ids = get_scheduler().wait(pending_ids)
-            for fid in ready_ids:
-                if fid in input_futures:
-                    coord = input_futures[fid].coord
-                    row_internal_indices = rows_partition_index_dict[coord[0]]
-                    col_internal_indices = columns_partition_index_dict[coord[1]]
-                    output_part = input_futures[fid].mask(row_internal_indices, col_internal_indices,
-                                                          is_series, func=func)
-                    output_part.coord = row_id_mapping.get(output_part.coord[0]), col_id_mapping.get(
-                        output_part.coord[1])
-                    output_partitions[output_part.coord] = output_part
-
+        for fid in cls.wait_ready(pending_ids):
+            if fid not in input_futures:
+                raise ValueError(f'unexpected future id {fid}')
+            coord = input_futures[fid].coord
+            row_internal_indices = rows_partition_index_dict[coord[0]]
+            col_internal_indices = columns_partition_index_dict[coord[1]]
+            output_part = input_futures[fid].mask(row_internal_indices, col_internal_indices, is_series, func=func)
+            output_part.coord = row_id_mapping.get(output_part.coord[0]), col_id_mapping.get(output_part.coord[1])
+            output_partitions[output_part.coord] = output_part
         return output_partitions
 
     @classmethod
@@ -424,24 +360,11 @@ class MultiprocessOperator(SinglethreadOperator):
         if map_func.groupby_kwargs['level']:
             # Groupby level, we don't need distribute key_partitions in this case
             partitions = cls.apply_func_queue(partitions)
-
             map_func_id = get_scheduler().put(map_func)
-
             output_partitions = np.ndarray(partitions.shape, dtype=object)
-            input_futures = {part.data_id: part for row_parts in partitions for part in row_parts}
-
-            pending_ids = list(input_futures.keys())
-
-            while pending_ids:
-                ready_ids, pending_ids = get_scheduler().wait(pending_ids)
-                for fid in ready_ids:
-                    if fid not in input_futures:
-                        warnings.warn(f'unexpected future id {fid}')
-
-                    input_part = input_futures[fid]
-                    output_part = input_part.group_apply(map_func_id, None)
-                    output_partitions[output_part.coord] = output_part
-
+            for part in cls.ready_parts(partitions):
+                output_part = part.group_apply(map_func_id, None)
+                output_partitions[output_part.coord] = output_part
             return output_partitions
 
         partitions = cls.apply_func_queue(partitions)
@@ -457,57 +380,30 @@ class MultiprocessOperator(SinglethreadOperator):
         input_pending_mask = np.zeros(partitions.shape)
         key_pending_mask = np.zeros(keys_partitions.shape)
         pending_ids = list(input_futures.keys()) + list(keys_futures.keys())
-        while pending_ids:
-            ready_ids, pending_ids = get_scheduler().wait(pending_ids)
-            def groupby_map_call():
-                for fid in ready_ids:
-                    if fid not in input_futures and fid not in keys_futures:
-                        continue
-                    has_input_fid = True
-                    if fid in input_futures:
-                        coord = input_futures[fid].coord
-                        input_pending_mask[coord] = 1
-                    elif fid in keys_futures:
-                        has_input_fid = False
-                        coord = keys_futures[fid].coord
-                        key_pending_mask[coord] = 1
-                    else:
-                        warnings.warn(f'unexpected future id {fid}')
-
-                    if axis == 0:
-                        row = coord[0]
-                        if has_input_fid and key_pending_mask[row, 0] == 1:
-                            input_part = input_futures[fid]
-                            key_part = keys_partitions[row, 0]
-                            output_part = input_part.group_apply(map_func_id, key_part.data_id)
-                            output_partitions[output_part.coord] = output_part
-                        elif not has_input_fid:
-                            for col in range(partitions.shape[1]):
-                                if input_pending_mask[row, col] != 1:
-                                    continue
-                                input_part = partitions[row, col]
-                                key_part = keys_futures[fid]
-                                output_part = input_part.group_apply(map_func_id, key_part.data_id)
-                                output_partitions[output_part.coord] = output_part
-                                input_pending_mask[row, col] = 0  # turn off so don't apply again
-                    else:
-                        col = coord[1]
-                        if has_input_fid and key_pending_mask[0, col] == 1:
-                            input_part = input_futures[fid]
-                            key_part = keys_partitions[0, col]
-                            output_part = input_part.group_apply(map_func_id, key_part.data_id)
-                            output_partitions[output_part.coord] = output_part
-                        elif not has_input_fid:
-                            for row in range(partitions.shape[0]):
-                                if input_pending_mask[row, col] != 1:
-                                    continue
-                                input_part = partitions[row, col]
-                                key_part = keys_futures[fid]
-                                output_part = input_part.group_apply(map_func_id, key_part.data_id)
-                                output_partitions[output_part.coord] = output_part
-                                input_pending_mask[row, col] = 0  # turn off so don't apply again
-            groupby_map_call()
-
+        for fid in cls.wait_ready(pending_ids):
+            if fid in input_futures:
+                coord = input_futures[fid].coord
+                input_pending_mask[coord] = 1
+                row, col = (coord[0], 0) if axis == 0 else (0, coord[1])
+                if key_pending_mask[row, col] == 1:
+                    input_part = input_futures[fid]
+                    key_part = keys_partitions[row, col]
+                    output_part = input_part.group_apply(map_func_id, key_part.data_id)
+                    output_partitions[output_part.coord] = output_part
+            elif fid in keys_futures:
+                coord = keys_futures[fid].coord
+                key_pending_mask[coord] = 1
+                # axis is 0 or 1
+                range_idx = partitions.shape[1] if axis == 0 else partitions.shape[0]
+                for i in range(range_idx):
+                    row, col = (coord[0], i) if axis == 0 else (i, coord[1])
+                    input_part = partitions[row, col]
+                    key_part = keys_futures[fid]
+                    output_part = input_part.group_apply(map_func_id, key_part.data_id)
+                    output_partitions[output_part.coord] = output_part
+                    input_pending_mask[row, col] = 0  # turn off so don't apply again
+            else:
+                raise ValueError(f'unexpected future id {fid}')
         return output_partitions
 
     @classmethod
@@ -521,15 +417,9 @@ class MultiprocessOperator(SinglethreadOperator):
             else:
                 sub_labels = labels
 
-            input_futures = {part.data_id: part for row_parts in partitions for part in row_parts}
-            pending_ids = list(input_futures.keys())
-            while pending_ids:
-                ready_ids, pending_ids = get_scheduler().wait(pending_ids)
-                for fid in ready_ids:
-                    if fid in input_futures:
-                        input_futures[fid].set_index(sub_labels)
-                        output_part = input_futures[fid].set_index(sub_labels)
-                        output_partitions[output_part.coord] = output_part
+            for part in cls.ready_parts(partitions):
+                output_part = part.set_index(sub_labels)
+                output_partitions[output_part.coord] = output_part
 
         def set_index_2d():
             sub_labels = []
@@ -542,16 +432,10 @@ class MultiprocessOperator(SinglethreadOperator):
                     sub_labels.append(labels[start:end])
                 start = end
 
-            input_futures = {part.data_id: part for row_parts in partitions for part in row_parts}
-            pending_ids = list(input_futures.keys())
-            while pending_ids:
-                ready_ids, pending_ids = get_scheduler().wait(pending_ids)
-                for fid in ready_ids:
-                    if fid in input_futures:
-                        input_row, _ = input_futures[fid].coord
-                        input_futures[fid].set_index(sub_labels[input_row])
-                        output_part = input_futures[fid].set_index(sub_labels[input_row])
-                        output_partitions[output_part.coord] = output_part
+            for part in cls.ready_parts(partitions):
+                input_row, _ = part.coord
+                output_part = part.set_index(sub_labels[input_row])
+                output_partitions[output_part.coord] = output_part
 
         if partitions.shape[0] == 1:
             set_index_1d()
@@ -563,100 +447,66 @@ class MultiprocessOperator(SinglethreadOperator):
     def copartition(cls, parts, is_range, **kwargs):
         parts = cls.apply_func_queue(parts)
         num_rows, num_cols = parts.shape
+
         def copartition_execution(index_map=None, func_id=None):
             mid_parts = np.ndarray((num_rows, num_rows), dtype=object)
             if is_range:
                 mid_parts = np.ndarray((max(3, num_rows), num_cols), dtype=object)
 
-            input_futures = {part.data_id: part for row_parts in parts for part in row_parts}
             slice_tasks = {}
-            pending_ids_mask = np.zeros(parts.shape)
-            pending_ids = list(input_futures.keys())
-            while pending_ids:
-                ready_ids, pending_ids = get_scheduler().wait(pending_ids)
-                for fid in ready_ids:
-                    if fid in input_futures:
-                        coord = input_futures[fid].coord
-                        pending_ids_mask[coord] = 1
-                        if is_range:
-                            idx = coord[1]
-                            axis = 0
-                        else:
-                            idx = coord[0]
-                            axis = 1
-                        # start concat as soon as whole column of partitions are ready
-                        if not is_range and pending_ids_mask[idx, :].all():
-                            axis_id_list = [part.data_id for part in parts[idx, :]]
-                            future_list_id, meta_data_list_id = get_scheduler().remote(rf()._remote_concat_copartition,
-                                                                                       axis_id_list,
-                                                                                       axis,
-                                                                                       None,
-                                                                                       func_id)
-                            slice_tasks[future_list_id] = (idx, meta_data_list_id)
-                        # start concat as soon as whole row of partitions are ready
-                        if is_range and pending_ids_mask[:, idx].all():
-                            axis_id_list = [part.data_id for part in parts[:, idx]]
-                            future_list_id, meta_data_list_id = get_scheduler().remote(rf()._remote_concat_copartition,
-                                                                                       axis_id_list,
-                                                                                       axis,
-                                                                                       index_map)
-                            slice_tasks[future_list_id] = (idx, meta_data_list_id)
+            axis = 0 if is_range else 1
+            for idx, axis_parts in cls.ready_axis_parts(parts, axis):
+                axis_id_list = [part.data_id for part in axis_parts]
+                if is_range:
+                    future_list_id, meta_data_list_id = get_scheduler().remote(rf()._remote_concat_copartition,
+                                                                               axis_id_list, axis, index_map)
+                else:
+                    future_list_id, meta_data_list_id = get_scheduler().remote(rf()._remote_concat_copartition,
+                                                                               axis_id_list, axis, None, func_id)
+                slice_tasks[future_list_id] = (idx, meta_data_list_id)
+
             pending_ids = list(slice_tasks.keys())
-            while pending_ids:
-                ready_ids, pending_ids = get_scheduler().wait(pending_ids)
-                for fid in ready_ids:
-                    idx, meta_data_list_id = slice_tasks[fid]
-                    future_list = get_scheduler().get(fid)[0]
-                    meta_data_list = get_scheduler().get(meta_data_list_id)[0]
-                    for row, (future_id, meta_data_id) in enumerate(zip(future_list, meta_data_list)):
-                        output_part = Partition.put(data_id=future_id, meta_id=meta_data_id, coord=(row, idx))
-                        mid_parts[output_part.coord] = output_part
-
+            for fid in cls.wait_ready(pending_ids):
+                if fid not in slice_tasks:
+                    raise ValueError(f'unexpected future id {fid}')
+                idx, meta_data_list_id = slice_tasks[fid]
+                future_list = get_scheduler().get(fid)[0]
+                meta_data_list = get_scheduler().get(meta_data_list_id)[0]
+                for row, (future_id, meta_data_id) in enumerate(zip(future_list, meta_data_list)):
+                    output_part = Partition.put(data_id=future_id, meta_id=meta_data_id, coord=(row, idx))
+                    mid_parts[output_part.coord] = output_part
             return mid_parts
-
-        def copartition_concat(mid_parts):
-            output_partitions = np.ndarray((mid_parts.shape[0], 1), dtype=object)
-            input_futures = {part.data_id: part for row_parts in mid_parts for part in row_parts}
-            pending_ids_mask = np.zeros(mid_parts.shape)
-            pending_ids = list(input_futures.keys())
-            while pending_ids:
-                ready_ids, pending_ids = get_scheduler().wait(pending_ids)
-                for fid in ready_ids:
-                    if fid in input_futures:
-                        coord = input_futures[fid].coord
-                        pending_ids_mask[coord] = 1
-                        idx = coord[0]
-                        if pending_ids_mask[idx, :].all():
-                            axis_id_list = [part.data_id for part in mid_parts[idx, :]]
-                            future_id, meta_data_id = get_scheduler().remote(rf()._remote_concat_axis, axis_id_list, 0)
-                            output_part = Partition.put(data_id=future_id, meta_id=meta_data_id, coord=(idx, 0))
-                            output_partitions[output_part.coord] = output_part
-            return output_partitions
 
         if not is_range:
             num_output = kwargs.get("num_output")
+
             def create_index_map_numeric(part_index):
                 output_index = defaultdict(list)
                 for idx in part_index:
                     if not is_numeric_dtype(type(idx)) or (is_numeric_dtype(type(idx)) and idx % 1 != 0):
                         # hash object index to int index
                         hashed_index = int(hashlib.sha512(idx.encode('utf-8')).hexdigest()[:16], 16)
-                        hashed_index = abs(hash(hashed_index)) % (10**8)
-                        output_index[hashed_index%num_output].append(idx)
+                        hashed_index = abs(hash(hashed_index)) % (10 ** 8)
+                        output_index[hashed_index % num_output].append(idx)
                     else:
-                        output_index[idx%num_output].append(idx)
+                        output_index[idx % num_output].append(idx)
                 for i in range(num_output):
                     if output_index[i] is None:
                         output_index[i].append(None)
                 return output_index
+
             func_id = get_scheduler().put(create_index_map_numeric)
             output_parts = copartition_execution(func_id=func_id)
-            output_parts = copartition_concat(output_parts)
+            output_partitions = np.ndarray((output_parts.shape[0], 1), dtype=object)
+            for idx, axis_parts in cls.ready_axis_parts(output_parts, axis=1):
+                axis_id_list = [part.data_id for part in axis_parts]
+                future_id, meta_data_id = get_scheduler().remote(rf()._remote_concat_axis, axis_id_list, 0)
+                output_part = Partition.put(data_id=future_id, meta_id=meta_data_id, coord=(idx, 0))
+                output_partitions[output_part.coord] = output_part
+            return output_partitions
 
-        else:
-            index_slices = kwargs.get("index_slices")
-            output_parts = copartition_execution(index_map=index_slices)
-
+        index_slices = kwargs.get("index_slices")
+        output_parts = copartition_execution(index_map=index_slices)
         return output_parts
 
     @classmethod
@@ -664,16 +514,9 @@ class MultiprocessOperator(SinglethreadOperator):
     def squeeze(cls, partitions, axis=None):
         partitions = cls.apply_func_queue(partitions)
         output_partitions = np.ndarray(partitions.shape, dtype=object)
-        input_futures = {part.data_id: part for row_parts in partitions for part in row_parts}
-
-        pending_ids = list(input_futures.keys())
-        while pending_ids:
-            ready_ids, pending_ids = get_scheduler().wait(pending_ids)
-            for fid in ready_ids:
-                if fid in input_futures:
-                    output_part = input_futures[fid].squeeze(axis)
-                    output_partitions[output_part.coord] = output_part
-
+        for part in cls.ready_parts(partitions):
+            output_part = part.squeeze(axis)
+            output_partitions[output_part.coord] = output_part
         return output_partitions
 
     @classmethod
@@ -739,11 +582,8 @@ class MultiprocessOperator(SinglethreadOperator):
     @classmethod
     def flush(cls, partitions):
         partitions = cls.apply_func_queue(partitions)
-
-        input_futures = {part.data_id: part for row_parts in partitions for part in row_parts}
-        pending_ids = list(input_futures.keys())
-        while pending_ids:
-            _, pending_ids = get_scheduler().wait(pending_ids)
+        for _ in cls.ready_parts(partitions):
+            continue
         return partitions
 
     @classmethod
@@ -777,15 +617,12 @@ class MultiprocessOperator(SinglethreadOperator):
                              zip(indices, applied_partitions[list(indices)])}
 
         pending_ids = list(input_futures.keys())
-        while pending_ids:
-            ready_ids, pending_ids = get_scheduler().wait(pending_ids)
-            for fid in ready_ids:
-                if fid in input_futures:
-                    input_part = input_futures[fid][0]
-                    input_part_id = input_futures[fid][1]
-                    input_internal_indices = input_futures[fid][2]
-                    output_part = input_part.apply(func_id, internal_indices=input_internal_indices)
-                    output_partitions[input_part_id] = output_part
+        for fid in cls.wait_ready(pending_ids):
+            if fid not in input_futures:
+                raise ValueError(f'unexpected future id {fid}')
+            input_part, input_part_id, input_internal_indices = input_futures[fid]
+            output_part = input_part.apply(func_id, internal_indices=input_internal_indices)
+            output_partitions[input_part_id] = output_part
 
         if keep_reminding:
             # fill up the output_partitions with the reminded_partitions
@@ -804,19 +641,7 @@ class MultiprocessOperator(SinglethreadOperator):
             if row_part[0].num_rows == 0:
                 del_list.append(i)
         output_partitions = np.delete(partitions, del_list, axis=0)
-
-        input_futures = {part.data_id: (part, i, j)
-                         for i, row_parts in enumerate(output_partitions)
-                         for j, part in enumerate(row_parts)}
-        pending_ids = list(input_futures.keys())
-        while pending_ids:
-            ready_ids, pending_ids = get_scheduler().wait(pending_ids)
-            for fid in ready_ids:
-                if fid in input_futures:
-                    input_part = input_futures[fid][0]
-                    input_row_id, input_col_id = input_futures[fid][1], input_futures[fid][2]
-                    input_part.coord = (input_row_id, input_col_id)
-
+        cls.reset_coord(output_partitions)
         return output_partitions
 
     @classmethod
@@ -830,29 +655,21 @@ class MultiprocessOperator(SinglethreadOperator):
             output_partitions = np.empty(partitions.shape[0], dtype=object)
             input_futures = {part.data_id: part for part in partitions[:, indice]}
         pending_ids = list(input_futures.keys())
-        while pending_ids:
-            ready_ids, pending_ids = get_scheduler().wait(pending_ids)
-            for fid in ready_ids:
-                if fid in input_futures:
-                    part = input_futures[fid].apply_queue()
-                    if axis == 1:
-                        output_partitions[part.coord[1]] = part
-                    else:
-                        output_partitions[part.coord[0]] = part
+        for fid in cls.wait_ready(pending_ids):
+            if fid not in input_futures:
+                raise ValueError(f'unexpected future id {fid}')
+            part = input_futures[fid].apply_queue()
+            idx = part.coord[0] if axis == 0 else part.coord[1]
+            output_partitions[idx] = part
         return output_partitions
 
     @classmethod
     def remove_empty_partitions(cls, partitions):
         """Remove empty partitions in multiprocess mode."""
-        input_futures = {part.meta_data_id: part for row_parts in partitions for part in row_parts}
         empty_partitions_mask = np.zeros(partitions.shape)
-        pending_ids = list(input_futures.keys())
-        while pending_ids:
-            ready_ids, pending_ids = get_scheduler().wait(pending_ids)
-            for fid in ready_ids:
-                part = input_futures[fid]
-                if part.num_rows == 0 or part.num_cols == 0:
-                    empty_partitions_mask[part.coord] = 1
+        for part in cls.ready_parts(partitions):
+            if part.num_rows == 0 or part.num_cols == 0:
+                empty_partitions_mask[part.coord] = 1
 
         nonempty_parts = []
         for x, row_parts in enumerate(empty_partitions_mask):
@@ -894,17 +711,13 @@ class MultiprocessOperator(SinglethreadOperator):
                 partitions[part_row][part_col], part_row_locs[part_row], part_col_locs[part_col], item)
                              for part_row in list(part_row_locs.keys()) for part_col in list(part_col_locs.keys())}
         pending_ids = list(input_futures.keys())
-        while pending_ids:
-            ready_ids, pending_ids = get_scheduler().wait(pending_ids)
-            for fid in ready_ids:
-                if fid in input_futures:
-                    input_part = input_futures[fid][0]
-                    input_part_row_locs = input_futures[fid][1]
-                    input_part_col_locs = input_futures[fid][2]
-                    item = input_futures[fid][3]
-                    output_part = input_part.apply(func_id, input_part_row_locs, input_part_col_locs, item)
-                    output_partitions[output_part.coord] = output_part
-                    input_part.update(output_part)
+        for fid in cls.wait_ready(pending_ids):
+            if fid not in input_futures:
+                raise ValueError(f'unexpected future id {fid}')
+            input_part, input_part_row_locs, input_part_col_locs, item = input_futures[fid]
+            output_part = input_part.apply(func_id, input_part_row_locs, input_part_col_locs, item)
+            output_partitions[output_part.coord] = output_part
+            input_part.update(output_part)
         cls.reset_coord(partitions)
         return output_partitions
 
@@ -912,14 +725,4 @@ class MultiprocessOperator(SinglethreadOperator):
     def map_axis_partitions(cls, axis, apply_func, base):
         """Apply map function along given axis."""
         apply_func_id = get_scheduler().put(apply_func)
-        base_partitions = cls.axis_partition(base, axis)
-        result_blocks = np.array([
-            [
-                base_partitions[row, col].apply(
-                    apply_func_id
-                )
-                for row in range(base_partitions.shape[0])
-            ]
-            for col in range(base_partitions.shape[1])
-        ])
-        return result_blocks.T if not axis else result_blocks
+        return super().map_axis_partitions(axis, apply_func_id, base)
