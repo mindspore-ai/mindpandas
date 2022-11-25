@@ -824,10 +824,10 @@ class MultiprocessOperator(SinglethreadOperator):
     def get_select_partitions(cls, partitions, indice, axis):
         """Apply func_queue for partitions"""
         if axis == 1:
-            output_partitions = [None]*partitions.shape[1]
+            output_partitions = np.empty(partitions.shape[1], dtype=object)
             input_futures = {part.data_id: part for part in partitions[indice, :]}
         else:
-            output_partitions = [None]*partitions.shape[0]
+            output_partitions = np.empty(partitions.shape[0], dtype=object)
             input_futures = {part.data_id: part for part in partitions[:, indice]}
         pending_ids = list(input_futures.keys())
         while pending_ids:
