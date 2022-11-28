@@ -72,8 +72,22 @@ class Actor:
         Returns:
             A object reference if queue is not empty, otherwise return None.
         """
-        if len(self.object_pool[shard_id]):
+        if self.object_pool[shard_id]:
             ref = self.object_pool[shard_id].popleft()
+            return ref
+        return None
+
+    def peek(self, shard_id):
+        """Get the last object reference from the queue specified by shard_id but doesn’t remove it from the queue.
+
+        Args:
+            shard_id: The shard to get data from.
+
+        Returns:
+            A object reference if queue is not empty, otherwise return None.
+        """
+        if self.object_pool[shard_id]:
+            ref = self.object_pool[shard_id][0]
             return ref
         return None
 
@@ -326,6 +340,31 @@ class DataReceiver(BaseChannel):
         dref = None
         while dref is None:
             rref = self.actor.get.invoke(self.shard_id)
+            dref = yr.get(rref)
+            self._wait()
+        result = yr.get(dref)
+        if isinstance(result, pandas.DataFrame) and result.shape == (1, 1):
+            result = result.squeeze()
+        return result
+
+    def peek(self):
+        """get data from the channel but doesn’t remove it from the channel.
+
+        Returns:
+            object, the least recent object in the shard that haven't been consumed.
+
+        Raises:
+            ValueError: When the `shard_id` of current receiver is invalid.
+
+        Examples:
+            >>> # receiver is an instance object of DataReceiver
+            >>> data = receiver.peek()
+        """
+        if self.shard_id < 0 or self.shard_id >= self.num_shards:
+            raise ValueError(f"Shard id '{self.shard_id}'out of range, should be in [0, {self.num_shards})")
+        dref = None
+        while dref is None:
+            rref = self.actor.peek.invoke(self.shard_id)
             dref = yr.get(rref)
             self._wait()
         result = yr.get(dref)
