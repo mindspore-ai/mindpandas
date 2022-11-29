@@ -128,8 +128,7 @@ build_wheel() {
 
 clean_files() {
     cd "$PROJECT_BASEDIR" || exit
-    rm -rf build/lib
-    rm -rf build/bdist.*
+    rm -rf build/
     rm -rf mindpandas.egg-info
     rm -rf dist_executor.tar.gz
     rm -rf mindpandas/dist_executor

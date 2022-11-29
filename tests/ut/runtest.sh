@@ -21,21 +21,18 @@ PROJECT_DIR=$(realpath "$SCRIPT_BASEDIR/../../")
 UT_PATH="$PROJECT_DIR/tests/ut"
 
 before_run_test() {
-    echo "Before run tests."
-    export PYTHONPATH=$PROJECT_DIR:$PYTHONPATH
+    yrctl start --master --address 127.0.0.1
 }
 
 after_run_test() {
-    echo "End to run tests."
+    yrctl stop
 }
 
 run_test() {
-    echo "Start to run tests."
     cd "$PROJECT_DIR" || exit
 
-    pytest "$UT_PATH"
+    python -m pytest "$UT_PATH"
     echo "Test all use cases success."
-
 }
 
 before_run_test

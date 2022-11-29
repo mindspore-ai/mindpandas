@@ -11,7 +11,7 @@ ROW_NUM = 10000
 
 @pytest.mark.level0
 @pytest.mark.platform_x86_cpu
-@pytest.mark.parametrize("concurrency_mode", ["multithread"])
+@pytest.mark.parametrize("concurrency_mode", ["multithread", "multiprocess"])
 def test_end_to_end(concurrency_mode):
     """
     Feature: System Test
@@ -21,7 +21,7 @@ def test_end_to_end(concurrency_mode):
     cat_val, int_val, lab_val = [], [], []
     max_dict, min_dict = {}, {}
     mpd.set_adaptive_concurrency(False)
-    mpd.set_concurrency_mode(concurrency_mode)
+    mpd.set_concurrency_mode(concurrency_mode, address="127.0.0.1")
     mpd.set_partition_shape((16, 3))
 
     def get_cat_feature(length):
