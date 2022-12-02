@@ -49,7 +49,7 @@ class MultithreadOperator(SinglethreadOperator):
         return output_partitions
 
     @classmethod
-    def injective_map(cls, partitions, cond_partitions, other, func, is_scalar):
+    def injective_map(cls, partitions, cond_partitions, other, func, other_is_scalar):
         '''Perform injective map operation onto partitions in multithreaded mode.'''
         def injective_map_no_cond(partitions, other, func, is_scalar):
             with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -71,7 +71,7 @@ class MultithreadOperator(SinglethreadOperator):
         lrows, lcols = partitions.shape
         output_partitions = np.ndarray(partitions.shape, dtype=object)
         if cond_partitions is None:
-            return injective_map_no_cond(partitions, other, func, is_scalar)
+            return injective_map_no_cond(partitions, other, func, other_is_scalar)
 
         is_broadcast = lcols > 1 and cond_partitions.shape[1] == 1
 
@@ -95,7 +95,7 @@ class MultithreadOperator(SinglethreadOperator):
                     output_part = future.result()
                     output_partitions[output_part.coord] = output_part
             return output_partitions
-        return injective_map_with_cond(partitions, cond_partitions, other, func, is_scalar)
+        return injective_map_with_cond(partitions, cond_partitions, other, func, other_is_scalar)
 
     @classmethod
     def reduce(cls, partitions, reduce_func, axis=0, concat_axis=None):
