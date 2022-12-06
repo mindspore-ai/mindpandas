@@ -7,6 +7,10 @@ MindPandas配置文件
 
 .. include:: mindpandas.config/mindpandas.config.get_concurrency_mode.rst
 
+.. include:: mindpandas.config/mindpandas.config.set_benchmark_mode.rst
+
+.. include:: mindpandas.config/mindpandas.config.get_benchmark_mode.rst
+
 .. include:: mindpandas.config/mindpandas.config.set_partition_shape.rst
 
 .. include:: mindpandas.config/mindpandas.config.get_partition_shape.rst

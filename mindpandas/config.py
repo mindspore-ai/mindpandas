@@ -99,7 +99,7 @@ def get_benchmark_mode():
     Get the current benchmark mode.
 
     Returns:
-        bool, current benchmark mode.
+        bool, Indicates whether the benchmark mode is enabled.
 
     Examples:
         >>> # Get the current benchmark mode.

@@ -2,7 +2,7 @@
 
     The receiver (output side) of the channel. It can be used for receiving new object from the channel.
 
-    Parameters：
+    Parameters
         - **address** (str) - The ip address of the node current receiver runs on.
         - **namespace** (str, optional) - he namespace that the channel belongs to. By default the value is `default` and the receiver will be running in namespace `default`. DataSender and DataReceiver in different namespaces cannot connect to each other.
         - **shard_id** (int, optional) - Specifies the shard of data that is received by current receiver. By default the value is 0 and the receiver will get data from the shard with id 0.
@@ -15,10 +15,10 @@
 
         Get data from the channel.
 
-        Returns：
+        Returns
             object，the least recent object in the shard that haven't been consumed.
 
-        Raises：
+        Raises
             - **ValueError** - When the `shard_id` of current receiver is invalid.
 
     .. py:method:: shard_id
