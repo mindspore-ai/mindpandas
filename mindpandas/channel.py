@@ -85,6 +85,9 @@ class Actor:
             return self.object_pool
         return self.object_pool.get(shard_id, None)
 
+    def get_queue_size(self, shard_id):
+        return len(self.object_pool[shard_id])
+
 
 class BaseChannel:
     """The base class for DataSender and DataReceiver. Initializes distributed executor if necessary.
@@ -124,6 +127,8 @@ class DataSender(BaseChannel):
         dataset_name (str, optional): The name of the dataset. By default the value is "dataset".
         full_batch (bool, optional): If true, each shard will get complete data sent by the sender. Otherwise each shard
             only gets part of the data. By default the value is False.
+        max_queue_size (int, optional): The maximum number of data that can be cached in the queue. By default the value
+            is 10.
 
     Raises:
         ValueError: If `num_shards` is an invalid value.
@@ -141,7 +146,8 @@ class DataSender(BaseChannel):
                  namespace='default',
                  num_shards=1,
                  dataset_name='dataset',
-                 full_batch=False
+                 full_batch=False,
+                 max_queue_size=10
                  ):
         if not isinstance(namespace, str):
             raise ValueError(f"namespace has to be a string, got {type(namespace)}")
@@ -153,6 +159,7 @@ class DataSender(BaseChannel):
             raise ValueError(f"full_batch has to be a boolean value, got {type(full_batch)}")
         self._num_shards = num_shards
         self._full_batch = full_batch
+        self.max_queue_size = max_queue_size
 
         super(DataSender, self).__init__(address=address)
 
@@ -207,17 +214,35 @@ class DataSender(BaseChannel):
             obj.repartition((num_shards, 1))
             array_of_parts = obj.remote_to_numpy().flatten()
             for i, part in enumerate(array_of_parts):
+                while self.actor.get_queue_size.invoke(i) >= self.max_queue_size:
+                    time.sleep(1)
                 if hasattr(part, 'data_id'):
                     ref = part.data_id
                 else:
                     data = part.get()
-                    ref = yr.put(data)
+                    ref = self._put(data)
                 self.actor.put.invoke([ref], shard_id=i, full_batch=self.full_batch)
         else:
             quo = len(obj) // num_shards
             for i in range(num_shards):
-                ref = yr.put(obj[i * quo:(i + 1) * quo])
+                while self.actor.get_queue_size.invoke(i) >= self.max_queue_size:
+                    time.sleep(1)
+                data = obj[i * quo:(i + 1) * quo]
+                ref = self._put(data)
                 self.actor.put.invoke([ref], shard_id=i, full_batch=self.full_batch)
+
+    def _put(self, obj):
+        """Internal function to put object into the pool"""
+        while True:
+            try:
+                ref = yr.put(obj)
+                break
+            except RuntimeError as e:
+                if "Out of memory" not in str(e):
+                    raise e
+                logging.warning("Insufficient memory, temporarily unable to put more data, retry after 1 second")
+                time.sleep(1)
+        return ref
 
     @property
     def num_shards(self):
