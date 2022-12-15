@@ -2,7 +2,7 @@
 
     The sender (input side) of the channel. It can be used for sending new object through the channel.
 
-    Parameters：
+    Parameters
         - **address** (str) - The ip address of the node current sender runs on.
         - **namespace** (str, optional) - The namespace that the channel belongs to. By default the value is `default` and the sender will be running in namespace `default`. DataSender and DataReceiver in different namespaces cannot connect to each other.
         - **num_shards** (int, optional) - Specifies how many shards the data will be divided into. By default the value is 1.
@@ -19,10 +19,10 @@
 
         Send object through the channel.
 
-        Parameters：
+        Parameters
             - **obj** (Union[numpy.ndarray, list, mindpandas.DataFrame]) - The object to send.
 
-        Raises：
+        Raises
             - **AttributeError** - When the object has no `len()`.
             - **TypeError** - When `obj` is not subscriptable.
 
@@ -40,8 +40,8 @@
 
         Returns the object references that haven't been consumed in the shard specified by `shard_id`.
 
-        Parameters：
+        Parameters
             - **shard_id** (int, optional) - The id of the requested shard. By default the value is None and it will return all shards.
 
-        Returns：
+        Returns
             List，stores references of the data in the shard.
