@@ -10,7 +10,7 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
 @pytest.mark.level0
 @pytest.mark.platform_x86_cpu
-@pytest.mark.parametrize("concurrency_mode", ["multithread"])
+@pytest.mark.parametrize("concurrency_mode", ["multithread", "multiprocess"])
 def test_end_to_end(concurrency_mode):
     """
     Feature: System Test
@@ -18,7 +18,7 @@ def test_end_to_end(concurrency_mode):
     Expectation: Runs successfully with the same result
     """
     mpd.set_adaptive_concurrency(False)
-    mpd.set_concurrency_mode(concurrency_mode)
+    mpd.set_concurrency_mode(concurrency_mode, address="127.0.0.1")
     mpd.set_partition_shape((16, 3))
 
     file_name = os.path.join(DATA_DIR, "raw_data.csv")

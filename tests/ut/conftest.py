@@ -3,11 +3,11 @@ import pytest
 import mindpandas as mpd
 
 
-@pytest.fixture(params=["multithread"])
+@pytest.fixture(params=["multithread", "multiprocess"])
 def set_mode(request):
     concurrency_mode = request.param
     if mpd.get_concurrency_mode() != concurrency_mode:
-        mpd.set_concurrency_mode(concurrency_mode)
+        mpd.set_concurrency_mode(concurrency_mode, address="127.0.0.1")
     print(f"\ncurrent concurrency mode:{concurrency_mode}")
 
 
