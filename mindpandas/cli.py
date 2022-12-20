@@ -72,10 +72,14 @@ def yrctl():
 @click.option("--cpu", type=int, default=None, help='number of cpus to use')
 @click.option("--datamem", type=int, default=None, help='amount of memory used by datasystem')
 @click.option("--mem", type=int, default=None, help='amount of general purpose memory')
-def start(master, address, cpu, datamem, mem):
+@click.option("--tmp-dir", type=str, default='/tmp/mindpandas/', help='temporary directory for the mindpandas process')
+@click.option("--tmp-file-size-limit", type=int, default=None, help='size limit of the temporary files (MB)')
+def start(master, address, cpu, datamem, mem, tmp_dir, tmp_file_size_limit):
     """The command to start distributed executor service."""
+    if not os.path.isabs(tmp_dir):
+        raise ValueError(f'"{tmp_dir}" is not a valid path')
     if cpu is None:
-        cpu = multiprocessing.cpu_count() * 1000
+        cpu = multiprocessing.cpu_count()
     system_memory = psutil.virtual_memory().total // (1 << 20)  # Available memory in MB.
     if datamem is None and mem is None:
         datamem = int(system_memory * 0.3)
@@ -85,12 +89,20 @@ def start(master, address, cpu, datamem, mem):
                f'-a {address}' if address is not None else '',
                f'--localaddress {local_address}' if local_address is not None else '',
                f'-p 4b7cffe5c9ca38db3db3bbabdf858c10',
-               f'--cpu {cpu}' if cpu is not None else '',
+               f'--cpu {cpu * 1000}' if cpu is not None else '',
                f'--datamem {datamem}' if datamem is not None else '',
-               f'--mem {mem}' if mem is not None else '']
+               f'--mem {mem}' if mem is not None else '',
+               f'--spillPath {os.path.join(tmp_dir, "mp-")}' if tmp_dir is not None else '',
+               f'--spillLimit {tmp_file_size_limit}' if tmp_file_size_limit is not None else '']
 
     option_str = ' '.join(options)
-    print(f"Starting distributed executor with option: address={address}, cpu={cpu}, datamem={datamem}, mem={mem}")
+    print(f"Starting distributed executor with option:\n"
+          f"address={address}, "
+          f"cpu={cpu}, "
+          f"datamem={datamem}, "
+          f"mem={mem}, "
+          f"spillPath={tmp_dir}, "
+          f"spillLimit={tmp_file_size_limit}\n")
     cmd = f"{_get_yrctl_bin_path()} start {option_str}"
     subprocess.run(cmd, check=True, shell=True)
 
