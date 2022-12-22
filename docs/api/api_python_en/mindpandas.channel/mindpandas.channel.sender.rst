@@ -9,7 +9,7 @@
         - **dataset_name** (str, optional) - The name of the dataset. By default the value is `dataset`.
         - **full_batch** (bool, optional) - If true, each shard will get complete data sent by the sender. Otherwise each shard only gets part of the data. By default the value is False.
 
-    Raises：
+    Raises
         - **ValueError** - When `num_shards` is an invalid value.
 
     .. note::

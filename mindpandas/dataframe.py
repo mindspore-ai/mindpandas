@@ -786,6 +786,7 @@ class DataFrame:
                 if ((result.columns is not None and 'mixed' in result.index.inferred_type)
                         or self.index.equals(other.index)):
                     return result
+                result = DataFrame(result)
                 return result.sort_index()
             if is_scalar(other):
                 return self._qc.df_comp_op(self, func, other, True, axis, level)
@@ -1282,18 +1283,31 @@ class DataFrame:
         """
         Sort object by labels along an axis.
         """
-        sorted_dataframe = self._qc.default_to_pandas(df=self,
-                                                      df_method=self.sort_index,
-                                                      axis=axis,
-                                                      level=level,
-                                                      ascending=ascending,
-                                                      inplace=inplace,
-                                                      kind=kind,
-                                                      na_position=na_position,
-                                                      sort_remaining=sort_remaining,
-                                                      ignore_index=ignore_index,
-                                                      key=key)
-        return sorted_dataframe
+        axis = self._get_axis_number(axis)
+        inplace = validate_bool_kwarg(inplace, "inplace")
+        if level is not None or self._qc.has_multiindex(self, axis=axis):
+            return self._qc.default_to_pandas(df=self,
+                                              df_method=self.sort_index,
+                                              axis=axis,
+                                              level=level,
+                                              ascending=ascending,
+                                              inplace=inplace,
+                                              kind=kind,
+                                              na_position=na_position,
+                                              sort_remaining=sort_remaining,
+                                              ignore_index=ignore_index,
+                                              key=key)
+
+        return self._qc.sort_index(self,
+                                   axis=axis,
+                                   level=level,
+                                   ascending=ascending,
+                                   inplace=inplace,
+                                   kind=kind,
+                                   na_position=na_position,
+                                   sort_remaining=sort_remaining,
+                                   ignore_index=ignore_index,
+                                   key=key)
 
     def set_index(
             self,

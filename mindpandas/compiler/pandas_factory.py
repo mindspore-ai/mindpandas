@@ -984,6 +984,35 @@ class Concat:
         return pandas.concat(data, axis)
 
 
+class SortIndex:
+    """Sort the index of the DataFrame."""
+
+    def __init__(self, axis=0, level=None, ascending=True, inplace=False, kind='quicksort', na_position='last',
+                 sort_remaining=True, ignore_index=False, key=None):
+        self.axis = axis
+        self.level = level
+        self.ascending = ascending
+        self.inplace = inplace
+        self.kind = kind
+        self.na_position = na_position
+        self.sort_remaining = sort_remaining
+        self.ignore_index = ignore_index
+        self.key = key
+
+    def __call__(self, dataframe):
+        dataframe = pandas.DataFrame.sort_index(dataframe,
+                                                axis=self.axis,
+                                                level=self.level,
+                                                ascending=self.ascending,
+                                                inplace=self.inplace,
+                                                kind=self.kind,
+                                                na_position=self.na_position,
+                                                sort_remaining=self.sort_remaining,
+                                                ignore_index=self.ignore_index,
+                                                key=self.key)
+        return dataframe
+
+
 class ResetIndex:
     """Reset the index of the DataFrame."""
 

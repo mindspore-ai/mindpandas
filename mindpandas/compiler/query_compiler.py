@@ -1820,6 +1820,22 @@ class QueryCompiler:
         return result
 
     @classmethod
+    def sort_index(cls, input_dataframe, axis=0, level=None, ascending=True, inplace=False, kind='quicksort',
+                   na_position='last', sort_remaining=True, ignore_index=False, key=None):
+        """Compiling sort_index"""
+        func = ff.sort_index(axis=axis,
+                             level=level,
+                             ascending=ascending,
+                             inplace=inplace,
+                             kind=kind,
+                             na_position=na_position,
+                             sort_remaining=sort_remaining,
+                             ignore_index=ignore_index,
+                             key=key)
+        frame = input_dataframe.backend_frame.reduce(func=func, axis=axis)
+        return mpd.DataFrame(data=frame)
+
+    @classmethod
     def set_index(
             cls, input_dataframe, keys: list, drop: bool = True, append: bool = False
     ):

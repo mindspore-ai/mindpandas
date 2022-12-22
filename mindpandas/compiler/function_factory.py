@@ -270,6 +270,17 @@ class FunctionFactory:
         return cls.ff_.Concat()
 
     @classmethod
+    def sort_index(cls, axis, level, ascending, inplace, kind, na_position, sort_remaining, ignore_index, key):
+        return cls.ff_.SortIndex(axis=axis,
+                                 level=level,
+                                 ascending=ascending,
+                                 inplace=inplace,
+                                 kind=kind,
+                                 na_position=na_position,
+                                 sort_remaining=sort_remaining,
+                                 ignore_index=ignore_index,
+                                 key=key)
+    @classmethod
     def reset_index(cls):
         return cls.ff_.ResetIndex()
 
