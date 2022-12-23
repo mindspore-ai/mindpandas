@@ -146,7 +146,7 @@ def read_csv(filepath, **kwargs):
         if file_size < adaptive_filesize_threshold:
             eager_backend.set_python_backend()
         else:
-            eager_backend.set_yr_backend(server_address='use_default_initialized')
+            eager_backend.set_yr_backend()
 
     if _validate_args(filepath, **kwargs):
         try:

@@ -34,7 +34,15 @@ def set_concurrency_mode(mode, **kwargs):
         **kwargs: When running on multithread mode, no additional parameters are required. When running on multiprocess
             mode, additional parameters include:
 
-            * address: The ip address of the master node, required.
+            * address: The ip address of the master node. Optional, uses "127.0.0.1" by default.
+            * cpu: The number of CPU cores to use. Optional, uses all CPU cores by default.
+            * datamem: The amount of memory used by datasystem (MB). Optional, uses 30% of total memory by default.
+            * mem: The total memory (including datamem) used by MindPandas (MB).
+                Optional, uses 90% of total memory by default.
+            * tmp_dir: The temporary directory for the mindpandas process. Optional, uses "/tmp/mindpandas" by default.
+            * tmp_file_size_limit: The temporary file size limit (MB).
+                Optional, the default value is "None" which uses up to 95% of current free disk space.
+
 
     Raises:
         ValueError: If mode is not 'multithread' or 'multiprocess'.
@@ -42,7 +50,7 @@ def set_concurrency_mode(mode, **kwargs):
     Examples:
         >>> # Change the mode to multiprocess.
         >>> import mindpandas as pd
-        >>> pd.set_concurrency_mode('multiprocess', address='127.0.0.1')
+        >>> pd.set_concurrency_mode('multiprocess')
     """
     support_mode = ['multithread', 'multiprocess']
     if mode not in support_mode:
@@ -51,8 +59,7 @@ def set_concurrency_mode(mode, **kwargs):
     i_config.set_concurrency_mode(mode)
 
     if mode == 'multiprocess':
-        address = kwargs.get('address', None)
-        eager_backend.set_yr_backend(server_address=address, ds_address=address)
+        eager_backend.set_yr_backend(**kwargs)
     elif mode == 'multithread':
         eager_backend.set_python_backend()
 
@@ -72,6 +79,7 @@ def get_concurrency_mode():
     mode = i_config.get_concurrency_mode()
     return mode
 
+
 def set_benchmark_mode(mode):
     """
     Users can select if they want to turn on benchmarkmode for performance analysis. Default mode is False.
@@ -83,7 +91,7 @@ def set_benchmark_mode(mode):
         ValueError: If mode is not True or False.
 
     Examples:
-        >>> # Change the mode to True..
+        >>> # Change the mode to True.
         >>> import mindpandas as pd
         >>> pd.set_benchmark_mode(True)
     """
@@ -209,7 +217,14 @@ def set_adaptive_concurrency(adaptive, **kwargs):
         **kwargs: When 'adaptive' is set to False, no additional parameters are required. When 'adaptive' is set to
             True, 'kwargs' includes:
 
-            * address: The ip address of the master node.
+            * address: The ip address of the master node. Optional, uses "127.0.0.1" by default.
+            * cpu: The number of CPU cores to use. Optional, uses all CPU cores by default.
+            * datamem: The amount of memory used by datasystem (MB). Optional, uses 30% of total memory by default.
+            * mem: The total memory (including datamem) used by MindPandas (MB).
+                Optional, uses 90% of total memory by default.
+            * tmp_dir: The temporary directory for the mindpandas process. Optional, uses "/tmp/mindpandas" by default.
+            * tmp_file_size_limit: The temporary file size limit (MB).
+                Optional, the default value is "None" which uses up to 95% of current free disk space.
 
     Raises:
         ValueError: if adaptive is not True or False.
@@ -217,16 +232,13 @@ def set_adaptive_concurrency(adaptive, **kwargs):
     Examples:
         >>> # Set adaptive concurrency to True.
         >>> import mindpandas as pd
-        >>> pd.set_adaptive_concurrency(True, address='127.0.0.1')
+        >>> pd.set_adaptive_concurrency(True)
     """
-    if adaptive not in (0, 1):
+    if not isinstance(adaptive, bool):
         raise ValueError(f"adaptive must be False or True, but got {adaptive}.")
 
     if adaptive:
-        address = kwargs.get('address', None)
-        if address is None:
-            raise ValueError("When adaptive_concurrency is set to True, keyword argument 'address' is required.")
-        eager_backend.set_yr_backend(server_address=address, ds_address=address)
+        eager_backend.set_yr_backend(**kwargs)
 
     i_config.set_adaptive_concurrency(adaptive)
 
@@ -260,7 +272,7 @@ def get_adaptive_partition_shape(mode):
         tuple, the partition shape for that mode.
 
     Examples:
-        >>> # Get the adaptive partition shape
+        >>> # Get the adaptive partition shape.
         >>> import mindpandas as pd
         >>> adaptive = pd.get_adaptive_partition_shape()
     """

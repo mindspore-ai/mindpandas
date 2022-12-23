@@ -30,11 +30,9 @@ def set_yr_backend(**kwargs):
     import mindpandas.backend.eager.yr.yr_remote_functions as backend_remote_functions
     from .yr.yr_scheduler import YrScheduler as backend_scheduler
     from .ds_partition import DSPartition as backend_partition
-    address = kwargs.get('server_address', None)
-    if address != 'use_default_initialized':
-        import atexit
-        backend_scheduler.init(**kwargs)
-        atexit.register(backend_scheduler.shutdown)
+    import atexit
+    atexit.register(backend_scheduler.shutdown)
+    backend_scheduler.init(**kwargs)
 
 
 def set_python_backend():
