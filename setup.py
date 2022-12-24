@@ -14,14 +14,15 @@
 # ==============================================================================
 """Setup."""
 
-import sys
 import os
-import stat
 import platform
 import shlex
+import stat
 import subprocess
+import sys
 import types
 from importlib import import_module
+
 from setuptools import setup, find_packages
 from setuptools.command.install import install
 
@@ -143,8 +144,8 @@ class Install(install):
 
 if __name__ == '__main__':
     version_info = sys.version_info
-    if (version_info.major, version_info.minor) not in  {(3, 7), (3, 8), (3, 9)}:
-        sys.stderr.write('Python version should be 3.7, 3.8 or 3.9\r\n')
+    if (version_info.major, version_info.minor) not in {(3, 8), (3, 9)}:
+        sys.stderr.write('Python version should be 3.8 or 3.9\r\n')
         sys.exit(1)
 
     setup(
@@ -168,7 +169,7 @@ if __name__ == '__main__':
         cmdclass={
             'install': Install,
         },
-        python_requires='>=3.7, <3.10',
+        python_requires='>=3.8, <3.10',
         install_requires=get_install_requires(),
         entry_points={
             "console_scripts": ["yrctl=mindpandas.cli:yrctl"]

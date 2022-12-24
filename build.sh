@@ -28,7 +28,13 @@ init_vars() {
     PROJECT_BASEDIR=$(realpath "$(dirname "$0")")
     VERSION="$("$PYTHON" -c 'import platform; print(platform.python_version())')"
     PYTHON_VERSION_NUM=$(echo "$VERSION" | awk -F'.' '{print $1$2}')
-    DIST_EXECUTOR_MD5="a60258bdacde13009178c50546ebdc7a"
+    if [ "${PYTHON_VERSION_NUM}" == "39" ]; then
+        DIST_EXECUTOR_MD5="c349b0bb78cd162412aaaa121f828e4a"
+        DOWNLOAD_PATH="https://mindpandas.obs.cn-north-4.myhuaweicloud.com/latest/py39/dist_executor.tar.gz"
+    elif [ "${PYTHON_VERSION_NUM}" == "38" ]; then
+        DIST_EXECUTOR_MD5="aa34d8dae4e2b84ce7a33285fd299da8"
+        DOWNLOAD_PATH="https://mindpandas.obs.cn-north-4.myhuaweicloud.com/latest/py38/dist_executor.tar.gz"
+    fi
 }
 
 rename_wheel() {
@@ -54,10 +60,7 @@ write_checksum() {
 
 solve_dependency() {
     echo "Solving Dependency"
-    if [[ "${BUILD_CI}" = "True" ]]; then
-        # Download for ci
-        echo "build on CI"
-    else
+    if [[ "${BUILD_LOCAL}" != "True" ]]; then
         # Download for user
         solved=0
         if [ -e "dist_executor.tar.gz" ]; then
@@ -67,12 +70,13 @@ solve_dependency() {
                 solved=1
             else
                 echo "dist_executor md5 mismatch"
+                rm dist_executor.tar.gz
             fi
         fi
 
         if [ ${solved} -ne 1 ]; then
             echo "Downloading dependency"
-            wget https://mindpandas.obs.cn-north-4.myhuaweicloud.com/latest/dist_executor.tar.gz
+            wget ${DOWNLOAD_PATH}
         fi
     fi
 
@@ -82,6 +86,14 @@ solve_dependency() {
 
     tar -xzf dist_executor.tar.gz -C mindpandas/
     chmod +wx -R mindpandas/dist_executor
+}
+
+clean_files() {
+    cd "$PROJECT_BASEDIR" || exit
+    rm -rf build/
+    rm -rf mindpandas.egg-info
+    rm -rf dist_executor.tar.gz
+    rm -rf mindpandas/dist_executor
 }
 
 build_wheel() {
@@ -94,8 +106,8 @@ build_wheel() {
             clean_files
             echo "clean mindpandas done"
             exit
-        elif [[ "${BUILD_CI}" = "True" ]]; then
-            echo "build on CI"
+        elif [[ "${BUILD_LOCAL}" = "True" ]]; then
+            echo "use existing dist_executor.tar.gz"
         else
             echo "unknown command: $1"
             exit
@@ -104,8 +116,8 @@ build_wheel() {
 
     echo "start building mindpandas"
 
-    if ! "$PYTHON" -c 'import sys; assert sys.version_info.major == 3 and sys.version_info.minor in {7, 8, 9}' > /dev/null; then
-        echo "Python 3.7, 3.8 or 3.9 is required. You are running $("$PYTHON" -V)"
+    if ! "$PYTHON" -c 'import sys; assert sys.version_info.major == 3 and sys.version_info.minor in {8, 9}' > /dev/null; then
+        echo "Python 3.8 or 3.9 is required. You are running $("$PYTHON" -V)"
         exit 1
     fi
 
@@ -126,34 +138,26 @@ build_wheel() {
     echo "Build success, output directory is: $PROJECT_BASEDIR/output"
 }
 
-clean_files() {
-    cd "$PROJECT_BASEDIR" || exit
-    rm -rf build/
-    rm -rf mindpandas.egg-info
-    rm -rf dist_executor.tar.gz
-    rm -rf mindpandas/dist_executor
-}
-
 show_usage() {
     echo "Build mindpandas"
     echo ""
-    echo "usage: build.sh [-hc] [clean]"
+    echo "usage: build.sh [-hl] [clean]"
     echo ""
     echo "options:"
     echo "  -h          show this help message and exit"
-    echo "  -c          build on CI environment"
+    echo "  -l          build with local dist_executor"
     echo "  clean       clean build files"
 }
 
 check_opts() {
-    while getopts 'ch' OPT; do
+    while getopts 'hl' OPT; do
         case "$OPT" in
         h)
             show_usage
             exit 0
             ;;
-        c)
-            BUILD_CI="True"
+        l)
+            BUILD_LOCAL="True"
             ;;
         \?)
             show_usage
