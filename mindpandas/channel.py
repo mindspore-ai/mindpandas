@@ -214,7 +214,7 @@ class DataSender(BaseChannel):
             obj.repartition((num_shards, 1))
             array_of_parts = obj.remote_to_numpy().flatten()
             for i, part in enumerate(array_of_parts):
-                while self.actor.get_queue_size.invoke(i) >= self.max_queue_size:
+                while yr.get(self.actor.get_queue_size.invoke(i)) >= self.max_queue_size:
                     time.sleep(1)
                 if hasattr(part, 'data_id'):
                     ref = part.data_id
@@ -225,7 +225,7 @@ class DataSender(BaseChannel):
         else:
             quo = len(obj) // num_shards
             for i in range(num_shards):
-                while self.actor.get_queue_size.invoke(i) >= self.max_queue_size:
+                while yr.get(self.actor.get_queue_size.invoke(i)) >= self.max_queue_size:
                     time.sleep(1)
                 data = obj[i * quo:(i + 1) * quo]
                 ref = self._put(data)
