@@ -46,7 +46,8 @@ def test_sort_index():
         return series.sort_index(ascending=False)
 
     def test_sort_index_simple_inplace(series):
-        return series.sort_index(inplace=True)
+        series.sort_index(inplace=True)
+        return series
 
     def test_sort_index_simple_nan(series):
         return series.sort_index(na_position='first')
@@ -63,3 +64,11 @@ def test_sort_index():
     TESTUTIL.compare(test_sort_index_simple_nan, create_nan_test_series)
     TESTUTIL.compare(test_sort_index_multilevel, create_multilevel_test_series)
     TESTUTIL.compare(test_sort_index_remaining, create_multilevel_test_series)
+
+    TESTUTIL.compare(test_sort_index_simple, create_fn=TESTUTIL.create_df_index_str_list)
+    TESTUTIL.compare(test_sort_index_simple, create_fn=TESTUTIL.create_df_has_duplicate_index)
+    TESTUTIL.compare(test_sort_index_simple_ascending, create_fn=TESTUTIL.create_df_index_range)
+    TESTUTIL.compare(test_sort_index_simple_inplace, create_fn=TESTUTIL.create_df_index_str_list)
+    TESTUTIL.compare(test_sort_index_simple_nan, create_fn=TESTUTIL.create_df_index_with_nan)
+    TESTUTIL.compare(test_sort_index_multilevel, create_fn=TESTUTIL.create_hierarchical_df)
+    TESTUTIL.compare(test_sort_index_remaining, create_fn=TESTUTIL.create_hierarchical_df)

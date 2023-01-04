@@ -229,6 +229,11 @@ class TestUtil:
                 df.to_csv(name)
         return df
 
+    def create_df_index_with_nan(self, module):
+        np.random.seed(100)
+        data = np.random.randn(5, 10)
+        return module.DataFrame(data=data, index=[3, 2, np.nan, 1, np.nan])
+
     def create_df_index_str_list(self, module):
         """
         Return a specific type DataFrame.
