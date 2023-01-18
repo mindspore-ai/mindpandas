@@ -48,6 +48,9 @@ def test_cummin():
         return df
 
     TESTUTIL.compare(test_cummin_fn)
+    TESTUTIL.compare(test_cummin_fn, TESTUTIL.create_series_bool)
+    TESTUTIL.compare(test_cummin_fn, TESTUTIL.create_series_nan)
+    TESTUTIL.compare(test_cummin_fn, TESTUTIL.create_series_zero)
 
 
 @pytest.mark.usefixtures("set_mode", "set_shape")
@@ -63,6 +66,9 @@ def test_cummax():
         return df
 
     TESTUTIL.compare(test_cummax_fn)
+    TESTUTIL.compare(test_cummax_fn, TESTUTIL.create_series_bool)
+    TESTUTIL.compare(test_cummax_fn, TESTUTIL.create_series_nan)
+    TESTUTIL.compare(test_cummax_fn, TESTUTIL.create_series_zero)
 
 
 @pytest.mark.usefixtures("set_mode", "set_shape")
@@ -78,3 +84,6 @@ def test_cumprod():
         return df
 
     TESTUTIL.compare(test_cumprod_fn)
+    TESTUTIL.compare(test_cumprod_fn, TESTUTIL.create_series_bool)
+    TESTUTIL.compare(test_cumprod_fn, TESTUTIL.create_series_nan)
+    TESTUTIL.compare(test_cumprod_fn, TESTUTIL.create_series_zero)

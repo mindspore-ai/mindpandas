@@ -1544,36 +1544,11 @@ class QueryCompiler:
         return table
 
     @classmethod
-    def cumsum(cls, input_dataframe, axis, skipna, *args, **kwargs):
-        """Compiling cumsum"""
-        reduce_func = ff.cumsum(axis=axis, skipna=skipna, *args, **kwargs)
+    def cum_op(cls, input_dataframe, method, axis, skipna, *args, **kwargs):
+        """Compiling cumulative ops."""
+        reduce_func = getattr(ff, method)(axis=axis, skipna=skipna, *args, **kwargs)
         result = input_dataframe.backend_frame.reduce(axis=axis, func=reduce_func)
-        if isinstance(input_dataframe, mpd.Series):
-            result = mpd.Series(data=result)
-        else:
-            result = mpd.DataFrame(data=result)
-        return result
-
-    @classmethod
-    def cummin(cls, input_dataframe, axis, skipna, *args, **kwargs):
-        """Compiling cummin"""
-        reduce_func = ff.cummin(axis=axis, skipna=skipna, *args, **kwargs)
-        frame = input_dataframe.backend_frame.reduce(axis=axis, func=reduce_func)
-        return mpd.DataFrame(data=frame)
-
-    @classmethod
-    def cummax(cls, input_dataframe, axis, skipna, *args, **kwargs):
-        """Compiling cummax"""
-        reduce_func = ff.cummax(axis=axis, skipna=skipna, *args, **kwargs)
-        frame = input_dataframe.backend_frame.reduce(axis=axis, func=reduce_func)
-        return mpd.DataFrame(data=frame)
-
-    @classmethod
-    def cumprod(cls, input_dataframe, axis, skipna, *args, **kwargs):
-        """Compiling cumprod"""
-        reduce_func = ff.cumprod(axis=axis, skipna=skipna, *args, **kwargs)
-        frame = input_dataframe.backend_frame.reduce(axis=axis, func=reduce_func)
-        return mpd.DataFrame(data=frame)
+        return type(input_dataframe)(result)
 
     @classmethod
     def all(cls, input_dataframe, axis=0, bool_only=None, skipna=True, level=None, **kwargs):

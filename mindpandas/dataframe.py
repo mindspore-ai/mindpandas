@@ -933,25 +933,24 @@ class DataFrame:
                                                       fill_value=fill_value)
         return output_dataframe
 
-    def cumsum(self, axis=None, skipna=True, **kwargs):
+    def _cum_op(self, method, axis=None, skipna=True, **kwargs):
         axis = self._get_axis_number(axis)
-        output_dataframe = self._qc.cumsum(self, axis=axis, skipna=skipna, **kwargs)
-        return output_dataframe
+        if not isinstance(skipna, bool):
+            raise TypeError(f"For {method} operation, 'skipna' should be a bool, got {type(skipna)}.")
+        output = self._qc.cum_op(self, method=method, axis=axis, skipna=skipna, **kwargs)
+        return output
+
+    def cumsum(self, axis=None, skipna=True, **kwargs):
+        return self._cum_op(method='cumsum', axis=axis, skipna=skipna, **kwargs)
 
     def cummin(self, axis=None, skipna=True, **kwargs):
-        axis = self._get_axis_number(axis)
-        output_dataframe = self._qc.cummin(self, axis=axis, skipna=skipna, **kwargs)
-        return output_dataframe
+        return self._cum_op(method='cummin', axis=axis, skipna=skipna, **kwargs)
 
     def cummax(self, axis=None, skipna=True, **kwargs):
-        axis = self._get_axis_number(axis)
-        output_dataframe = self._qc.cummax(self, axis=axis, skipna=skipna, **kwargs)
-        return output_dataframe
+        return self._cum_op(method='cummax', axis=axis, skipna=skipna, **kwargs)
 
     def cumprod(self, axis=None, skipna=True, **kwargs):
-        axis = self._get_axis_number(axis)
-        output_dataframe = self._qc.cumprod(self, axis=axis, skipna=skipna, **kwargs)
-        return output_dataframe
+        return self._cum_op(method='cumprod', axis=axis, skipna=skipna, **kwargs)
 
     def append(
             self,

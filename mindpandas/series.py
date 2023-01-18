@@ -853,27 +853,24 @@ class Series:
                                           fill_value=fill_value,
                                           force_series=True)
 
+    def _cum_op(self, method, axis=None, skipna=True, **kwargs):
+        axis = self._get_axis_number(axis)
+        if not isinstance(skipna, bool):
+            raise TypeError(f"For {method} operation, 'skipna' should be a bool, got {type(skipna)}.")
+        output = self._qc.cum_op(self, method=method, axis=axis, skipna=skipna, **kwargs)
+        return output
+
     def cumsum(self, axis=None, skipna=True, **kwargs):
-        """
-        Return cumulative sum over a Series axis.
+        return self._cum_op(method='cumsum', axis=axis, skipna=skipna, **kwargs)
 
-        Args:
-            axis: {0 or ‘index’, 1 or ‘columns’} default 0. The index or the name of the axis.
-                0 is equivalent to None or ‘index’.
-            skipna: bool, default True. Exclude NA/null values. If an entire row/column is NA,
-                the result will be NA.
-            *args, **kwargs: Additional keywords have no effect but might be accepted for
-                compatibility with NumPy.
+    def cummin(self, axis=None, skipna=True, **kwargs):
+        return self._cum_op(method='cummin', axis=axis, skipna=skipna, **kwargs)
 
-        Returns:
-            scalar or Series. Return cumulative sum of scalar or Series.
+    def cummax(self, axis=None, skipna=True, **kwargs):
+        return self._cum_op(method='cummax', axis=axis, skipna=skipna, **kwargs)
 
-        Supportes Platforms:
-            ``CPU``
-        """
-        axis = self._get_axis_number(axis) if axis is not None else 0
-        output_dataframe = self._qc.cumsum(self, axis=axis, skipna=skipna, **kwargs)
-        return output_dataframe
+    def cumprod(self, axis=None, skipna=True, **kwargs):
+        return self._cum_op(method='cumprod', axis=axis, skipna=skipna, **kwargs)
 
     def sum(self, axis=None, skipna=True, level=None, numeric_only=None, min_count=0, **kwargs):
         """Returns sum of the values over the specified axis."""
