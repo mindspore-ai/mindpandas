@@ -1336,8 +1336,6 @@ class QueryCompiler:
     @classmethod
     def explode(cls, input_dataframe, column, ignore_index=False):
         """
-        This func is only used for demo purposes.
-
         Compiling explode
         """
         reduce_func = ff.explode(column=column, ignore_index=ignore_index)

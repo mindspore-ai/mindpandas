@@ -130,9 +130,6 @@ class FunctionFactory:
 
     @classmethod
     def explode(cls, column, ignore_index=False):
-        """
-        This func is only used for demo purposes.
-        """
         return cls.ff_.Explode(column=column, ignore_index=ignore_index)
 
     @classmethod

@@ -21,7 +21,6 @@ from util import TESTUTIL
 @pytest.mark.usefixtures("set_mode", "set_shape")
 def test_explode():
     """
-    This func is only used for demo purposes.
     Description: tests df.explode
     Expectation: same output as pandas df.explode
     """

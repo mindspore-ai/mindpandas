@@ -908,12 +908,9 @@ class DataFrame:
 
     def explode(self, column, ignore_index=False):
         """
-        This func is only used for demo purposes.
-
         Expand list-like elements of a column to individual row elements, replicating index values.
         """
-        df = self.reset_index(drop=True)
-        result = self._qc.explode(df, column=column, ignore_index=ignore_index)
+        result = self._qc.explode(self, column=column, ignore_index=ignore_index)
         if ignore_index:
             result = result.reset_index()
         result = result.reindex(columns=self.columns)
