@@ -1,4 +1,4 @@
-# Copyright 2023-2023 Huawei Technologies Co., Ltd
+# Copyright 2023 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,21 +26,47 @@ def test_count():
     """
 
     def test_count_default(df):
-        return df.count()
+        df = df.count()
+        return df
 
     def test_count_axis_1(df):
-        return df.count(axis=1)
+        df = df.count(axis=1)
+        return df
 
-    def test_count_level(df):
-        return df.count(level='Full')
+    def test_count_level_full(df):
+        df = df.count(level='Full')
+        return df
+
+    def test_count_level_partial(df):
+        df = df.count(level='Partial')
+        return df
+
+    def test_count_level_id(df):
+        df = df.count(level='ID')
+        return df
+
+    def test_count_level_blooded(df):
+        df = df.count(level='blooded')
+        return df
 
     def test_count_numeric_only_is_true(df):
-        return df.count(numeric_only=True)
+        df = df.count(numeric_only=True)
+        return df
 
-
+    # DataFrame.count
+    TESTUTIL.compare(test_count_default, create_fn=TESTUTIL.create_df_empty)
+    TESTUTIL.compare(test_count_default, create_fn=TESTUTIL.create_df_empty_with_columns)
     TESTUTIL.compare(test_count_default, create_fn=TESTUTIL.create_df_range)
     TESTUTIL.compare(test_count_default, create_fn=TESTUTIL.create_df_mixed_dtypes)
     TESTUTIL.compare(test_count_axis_1, create_fn=TESTUTIL.create_df_range)
     TESTUTIL.compare(test_count_axis_1, create_fn=TESTUTIL.create_df_mixed_dtypes)
-    TESTUTIL.compare(test_count_level, create_fn=TESTUTIL.create_hierarchical_df)
+    TESTUTIL.compare(test_count_level_full, create_fn=TESTUTIL.create_hierarchical_df)
+    TESTUTIL.compare(test_count_level_partial, create_fn=TESTUTIL.create_hierarchical_df)
+    TESTUTIL.compare(test_count_level_id, create_fn=TESTUTIL.create_hierarchical_df)
     TESTUTIL.compare(test_count_numeric_only_is_true, create_fn=TESTUTIL.create_df_mixed_dtypes)
+
+    # Series.count
+    TESTUTIL.compare(test_count_default, create_fn=TESTUTIL.create_series_range)
+    TESTUTIL.compare(test_count_default, create_fn=TESTUTIL.create_series_nan)
+    TESTUTIL.compare(test_count_default, create_fn=TESTUTIL.create_series_dup)
+    TESTUTIL.compare(test_count_level_blooded, create_fn=TESTUTIL.create_hierarchical_series)

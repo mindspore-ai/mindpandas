@@ -19,14 +19,9 @@ import pandas
 from pandas.api.types import is_scalar
 
 from mindpandas.index import compute_sliced_len
+from mindpandas.util import NO_VALUE
 from .eager_backend import get_scheduler
 from .eager_backend import remote_functions as rf
-
-
-class NA:
-    '''NA object.'''
-    def __init__(self):
-        pass
 
 
 class DSPartition():
@@ -41,13 +36,13 @@ class DSPartition():
         self.func_queue = []
 
         # cached data
-        self.container_type = meta_data.get('container_type', NA())
-        self.num_rows = meta_data.get('num_rows', NA())
-        self.num_cols = meta_data.get('num_cols', NA())
-        self.index = meta_data.get('index', NA())
-        self.columns = meta_data.get('columns', NA())
-        self.valid = meta_data.get('valid', NA())
-        self.dtypes = meta_data.get('dtypes', NA())
+        self.container_type = meta_data.get('container_type', NO_VALUE)
+        self.num_rows = meta_data.get('num_rows', NO_VALUE)
+        self.num_cols = meta_data.get('num_cols', NO_VALUE)
+        self.index = meta_data.get('index', NO_VALUE)
+        self.columns = meta_data.get('columns', NO_VALUE)
+        self.valid = meta_data.get('valid', NO_VALUE)
+        self.dtypes = meta_data.get('dtypes', NO_VALUE)
 
     def append_func(self, func, *args, **kwargs):
         '''Appends function to function queue.'''
@@ -123,7 +118,7 @@ class DSPartition():
     @property
     def index(self):
         '''Get index of partition.'''
-        if isinstance(self._index, NA):
+        if self._index is NO_VALUE:
             self._get_meta_data()
         return self._index
 
@@ -135,7 +130,7 @@ class DSPartition():
     @property
     def columns(self):
         '''Get partition columns.'''
-        if isinstance(self._columns, NA):
+        if self._columns is NO_VALUE:
             self._get_meta_data()
         return self._columns
 
@@ -147,7 +142,7 @@ class DSPartition():
     @property
     def num_rows(self):
         '''Get number of rows.'''
-        if isinstance(self._num_rows, NA):
+        if self._num_rows is NO_VALUE:
             self._get_meta_data()
         return self._num_rows
 
@@ -159,7 +154,7 @@ class DSPartition():
     @property
     def num_cols(self):
         '''Get number of columns.'''
-        if isinstance(self._num_cols, NA):
+        if self._num_cols is NO_VALUE:
             self._get_meta_data()
         return self._num_cols
 
@@ -171,7 +166,7 @@ class DSPartition():
     @property
     def container_type(self):
         '''Get container type.'''
-        if isinstance(self._container_type, NA):
+        if self._container_type is NO_VALUE:
             self._get_meta_data()
         return self._container_type
 
@@ -183,7 +178,7 @@ class DSPartition():
     @property
     def valid(self):
         '''Check partitions valid status.'''
-        if isinstance(self._valid, NA):
+        if self._valid is NO_VALUE:
             self._get_meta_data()
         return self._valid
 
@@ -195,7 +190,7 @@ class DSPartition():
     @property
     def dtypes(self):
         '''Get partition data types.'''
-        if isinstance(self._dtypes, NA):
+        if self._dtypes is NO_VALUE:
             self._get_meta_data()
         return self._dtypes
 
@@ -277,13 +272,13 @@ class DSPartition():
         self.data_id = new_part.data_id
         self.meta_data_id = new_part.meta_data_id
         self.coord = new_part.coord
-        self.container_type = NA()
-        self.num_rows = NA()
-        self.num_cols = NA()
-        self.index = NA()
-        self.columns = NA()
-        self.valid = NA()
-        self.dtypes = NA()
+        self.container_type = NO_VALUE
+        self.num_rows = NO_VALUE
+        self.num_cols = NO_VALUE
+        self.index = NO_VALUE
+        self.columns = NO_VALUE
+        self.valid = NO_VALUE
+        self.dtypes = NO_VALUE
 
 
 def process_raw_data(data, container_type=None):

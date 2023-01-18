@@ -467,56 +467,55 @@ class QueryCompiler:
         return result
 
     @classmethod
-    def mean(cls, input_dataframe, axis=None, skipna=True, level=None, numeric_only=None, **kwargs):
-        """Compiling mean"""
-        map_func = ff.sum_count(axis=axis, skipna=skipna, level=level, numeric_only=numeric_only, **kwargs)
-        reduce_func = ff.reduce_mean(axis=axis, skipna=skipna)
-        frame = input_dataframe.backend_frame.map_reduce(map_func, reduce_func, axis=axis)
-        result = mpd.Series(data=frame)
+    def stat_op(cls, input_dataframe, op_name, axis=0, **kwargs):
+        """Compiling statistical operations"""
+        stat_functions = {
+            "max": {"map_func": ff.max, "reduce_func": ff.max},
+            "min": {"map_func": ff.min, "reduce_func": ff.min},
+            "median": {"reduce_func": ff.median},
+            "mean": {"map_func": ff.sum_count, "reduce_func": ff.reduce_mean},
+            "count": {"reduce_func": ff.count},
+            "sum": {"map_func": ff.sum_count, "reduce_func": ff.reduce_sum},
+            "std": {"reduce_func": ff.std},
+            "var": {"reduce_func": ff.var},
+            "prod": {"reduce_func": ff.prod}
+        }
+
+        if op_name not in stat_functions:
+            raise NotImplementedError("Operation not supported")
+
+        functions = stat_functions[op_name]
+        if "map_func" in functions:
+            map_func = functions["map_func"](axis=axis, **kwargs)
+            reduce_func = functions["reduce_func"](axis=axis, **kwargs)
+            result = input_dataframe.backend_frame.map_reduce(map_func=map_func, reduce_func=reduce_func, axis=axis,
+                                                              concat_axis=axis ^ 1)
+        else:
+            reduce_func = functions["reduce_func"](axis=axis, **kwargs)
+            result = input_dataframe.backend_frame.reduce(func=reduce_func, axis=axis)
+
+        result = mpd.Series(data=result)
         if isinstance(input_dataframe, mpd.Series):
-            return result[0]
+            result = result.squeeze()
         return result
 
     @classmethod
-    def max(cls, input_dataframe, axis=None, skipna=True, level=None, numeric_only=None, **kwargs):
-        """Compiling max"""
-        func = ff.max(axis=axis, numeric_only=numeric_only, skipna=skipna, level=level, **kwargs)
-        if level is None:
+    def logical_op(cls, input_dataframe, op_name, axis, bool_only, skipna, level, **kwargs):
+        """Compiling logical operation"""
+        func = getattr(ff, op_name)(axis=axis, bool_only=bool_only, skipna=skipna, level=level, **kwargs)
+
+        if level is None and bool_only is not True:
             result = input_dataframe.backend_frame.map_reduce(map_func=func, reduce_func=func, axis=axis,
                                                               concat_axis=axis ^ 1)
         else:
             result = input_dataframe.backend_frame.reduce(func=func, axis=axis)
 
-        if level is None:
-            result = mpd.Series(data=result)
-            if isinstance(input_dataframe, mpd.Series):
-                result = result.squeeze()
-        else:
-            if isinstance(input_dataframe, mpd.DataFrame):
-                result = mpd.DataFrame(data=result)
-            else:
-                result = mpd.Series(data=result)
-        return result
+        if level is not None:
+            return type(input_dataframe)(result)
 
-    @classmethod
-    def min(cls, input_dataframe, axis=None, skipna=True, level=None, numeric_only=None, **kwargs):
-        """Compiling min"""
-        func = ff.min(axis=axis, numeric_only=numeric_only, skipna=skipna, level=level, **kwargs)
-        if level is None:
-            result = input_dataframe.backend_frame.map_reduce(map_func=func, reduce_func=func, axis=axis,
-                                                              concat_axis=axis ^ 1)
-        else:
-            result = input_dataframe.backend_frame.reduce(func=func, axis=axis)
-
-        if level is None:
-            result = mpd.Series(data=result)
-            if isinstance(input_dataframe, mpd.Series):
-                result = result.squeeze()
-        else:
-            if isinstance(input_dataframe, mpd.DataFrame):
-                result = mpd.DataFrame(data=result)
-            else:
-                result = mpd.Series(data=result)
+        result = mpd.Series(data=result)
+        if isinstance(input_dataframe, mpd.Series):
+            result = result.squeeze()
         return result
 
     @classmethod
@@ -714,79 +713,6 @@ class QueryCompiler:
         if isinstance(input_dataframe, mpd.Series):
             return mpd.Series(data=frame)
         return mpd.DataFrame(data=frame)
-
-    @classmethod
-    def sum(cls, input_dataframe, axis=0, skipna=True, numeric_only=None, min_count=0, **kwargs):
-        """Compiling sum"""
-        if not isinstance(min_count, int):
-            raise TypeError("min_count should be an integer")
-
-        if min_count > 0:
-            map_func = ff.sum_count(axis=axis, skipna=skipna, numeric_only=numeric_only, **kwargs)
-        else:
-            map_func = ff.sum(axis=axis, skipna=skipna, numeric_only=numeric_only, **kwargs)
-
-        reduce_func = ff.reduce_sum(axis=axis, skipna=skipna, numeric_only=numeric_only, min_count=min_count)
-        frame = input_dataframe.backend_frame.map_reduce(map_func, reduce_func, axis=axis)
-
-        result = mpd.Series(data=frame)
-
-        # `DataFrame.sum(axis=1, skipna=False, numeric_only=True)` needs a special handle. The non-numeric value
-        # converts to 0.0 (float64) in map function in each partition. Then we have inconsistent dtypes in the
-        # reduce function. Since the pandas will automatically using the higher precision types in the sum
-        # calculation, the result dtype will convert to `float64` if the predicted result has lower precision
-        # than `float64`. We will cast back to the correct dtype if this case happens.
-        #
-        # For example:
-        # if the input dataframe is
-        #    C1   C3
-        # 0   a  3.0
-        # 1  10  4.0
-        #
-        # and the dtypes is:
-        # C1     object
-        # C3    float32
-        # dtype: object
-        # The result dtype should be: `float32`
-        # However, since the C1 is non-numeric value dtype and it auto-converts to `float64` in map func, our
-        # result dtype will be calculated as `float64`.
-        if isinstance(input_dataframe, mpd.DataFrame) and input_dataframe.backend_frame.num_rows >= 1:
-            dataframe = input_dataframe.head(2).to_pandas()
-            final_dtype = dataframe.sum(axis=axis, skipna=skipna, numeric_only=numeric_only,
-                                        min_count=min_count).dtype
-            if final_dtype != result.dtypes:
-                result = result.apply(np.cast[final_dtype])
-
-        if isinstance(input_dataframe, mpd.DataFrame):
-            return result
-
-        return result[0]
-
-    @classmethod
-    def count(cls, input_dataframe, axis, level, numeric_only):
-        func = ff.count(axis=axis, level=level, numeric_only=numeric_only)
-        result = input_dataframe.backend_frame.reduce(func, axis=axis)
-        return mpd.Series(data=result)
-
-    @classmethod
-    def std(cls, input_dataframe, axis, skipna, level, numeric_only, **kwargs):
-        """Compiling std"""
-        ddof = kwargs.pop("ddof")
-        if input_dataframe.backend_frame.partitions[0, 0].container_type is pandas.DataFrame:
-            is_series = False
-        else:
-            is_series = True
-        map_func = ff.std(axis=axis, skipna=skipna, level=level,
-                          ddof=ddof, numeric_only=numeric_only, is_series=is_series, **kwargs)
-
-        result = input_dataframe.backend_frame.reduce(map_func, axis=axis)
-
-        if result.partitions[0, 0].container_type not in (pandas.DataFrame, pandas.Series):
-            return result.to_pandas().squeeze()
-        if level is None:
-            return mpd.Series(data=result)
-
-        return mpd.DataFrame(data=result)
 
     @classmethod
     def rename(cls, input_dataframe, mapper=None, *, index=None, columns=None, axis=None,
@@ -1342,7 +1268,6 @@ class QueryCompiler:
         result = input_dataframe.backend_frame.reduce(func=reduce_func, axis=1)
         return mpd.DataFrame(result)
 
-
     @classmethod
     def pivot_table(cls,
                     data,
@@ -1546,50 +1471,6 @@ class QueryCompiler:
         reduce_func = getattr(ff, method)(axis=axis, skipna=skipna, *args, **kwargs)
         result = input_dataframe.backend_frame.reduce(axis=axis, func=reduce_func)
         return type(input_dataframe)(result)
-
-    @classmethod
-    def all(cls, input_dataframe, axis=0, bool_only=None, skipna=True, level=None, **kwargs):
-        """Compiling all"""
-        func = ff.all(axis=axis, bool_only=bool_only, skipna=skipna, level=level, **kwargs)
-        if level is None and bool_only is not True:
-            result = input_dataframe.backend_frame.map_reduce(map_func=func, reduce_func=func, axis=axis,
-                                                              concat_axis=axis ^ 1)
-        else:
-            result = input_dataframe.backend_frame.reduce(func=func, axis=axis)
-
-        if level is None:
-            result = mpd.Series(data=result)
-            if isinstance(input_dataframe, mpd.Series):
-                result = result.squeeze()
-        else:
-            if isinstance(input_dataframe, mpd.DataFrame):
-                result = mpd.DataFrame(data=result)
-            else:
-                result = mpd.Series(data=result)
-
-        return result
-
-    @classmethod
-    def any(cls, input_dataframe, axis=0, bool_only=None, skipna=True, level=None, **kwargs):
-        """Compiling any"""
-        func = ff.any(axis=axis, bool_only=bool_only, skipna=skipna, level=level, **kwargs)
-        if level is None and bool_only is not True:
-            result = input_dataframe.backend_frame.map_reduce(map_func=func, reduce_func=func, axis=axis,
-                                                              concat_axis=axis ^ 1)
-        else:
-            result = input_dataframe.backend_frame.reduce(func=func, axis=axis)
-
-        if level is None:
-            result = mpd.Series(data=result)
-            if isinstance(input_dataframe, mpd.Series):
-                result = result.squeeze()
-        else:
-            if isinstance(input_dataframe, mpd.DataFrame):
-                result = mpd.DataFrame(data=result)
-            else:
-                result = mpd.Series(data=result)
-
-        return result
 
     @classmethod
     def apply(cls, df, **kwargs):
@@ -2088,13 +1969,6 @@ class QueryCompiler:
                                      bins=bins,
                                      dropna=dropna,
                                      force_series=True)
-
-    @classmethod
-    def median(cls, input_dataframe, axis=None, skipna=True, level=None, numeric_only=None, **kwargs):
-        """Compiling median"""
-        reduce_func = ff.median(axis=axis, skipna=skipna, level=level, numeric_only=numeric_only, **kwargs)
-        frame = input_dataframe.backend_frame.reduce(axis=axis, func=reduce_func)
-        return mpd.Series(frame)
 
     @classmethod
     def replace(cls, data, to_replace, value, inplace, limit, regex, method):

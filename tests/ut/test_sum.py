@@ -57,6 +57,10 @@ def test_sum():
         df = df.sum()
         return df
 
+    def test_sum_axis_1(df):
+        df = df.sum(axis=1)
+        return df
+
     def test_sum_level_full(df):
         df = df.sum(axis=0, level='Full')
         return df
@@ -90,18 +94,31 @@ def test_sum():
     TESTUTIL.compare(test_sum_default, create_fn=TESTUTIL.create_df_empty)
     TESTUTIL.compare(test_sum_default, create_fn=TESTUTIL.create_df_empty_with_columns)
     TESTUTIL.compare(test_sum_default, create_fn=TESTUTIL.create_df_range)
-    TESTUTIL.compare(test_sum_default, create_fn=TESTUTIL.create_series_range)
     TESTUTIL.compare(test_sum_default, create_fn=TESTUTIL.create_df_mixed_dtypes)
+    TESTUTIL.compare(test_sum_default, create_fn=TESTUTIL.create_df_mixed_dtypes_2)
+
+    TESTUTIL.compare(test_sum_axis_1, create_fn=TESTUTIL.create_df_empty)
+    TESTUTIL.compare(test_sum_axis_1, create_fn=TESTUTIL.create_df_empty_with_columns)
+    TESTUTIL.compare(test_sum_axis_1, create_fn=TESTUTIL.create_df_range)
+    TESTUTIL.compare(test_sum_axis_1, create_fn=TESTUTIL.create_df_mixed_dtypes)
+    TESTUTIL.compare(test_sum_axis_1, create_fn=TESTUTIL.create_df_mixed_dtypes_2)
+
     TESTUTIL.compare(test_sum_level_full, create_fn=TESTUTIL.create_hierarchical_df)
     TESTUTIL.compare(test_sum_level_partial, create_fn=TESTUTIL.create_hierarchical_df)
     TESTUTIL.compare(test_sum_level_id, create_fn=TESTUTIL.create_hierarchical_df)
-    TESTUTIL.compare(test_sum_default, create_fn=TESTUTIL.create_df_mixed_dtypes)
+
     TESTUTIL.compare(test_sum_numeric_only_is_true, create_fn=TESTUTIL.create_df_mixed_dtypes)
     TESTUTIL.compare(test_sum_numeric_only_is_false, create_fn=TESTUTIL.create_df_mixed_dtypes)
     TESTUTIL.compare(test_sum_numeric_only_is_string, create_fn=TESTUTIL.create_df_mixed_dtypes)
+
     TESTUTIL.compare(test_sum_min_count, create_fn=create_df_multiindex)
     TESTUTIL.compare(test_sum_min_count_only, create_fn=create_series_multiindex)
     TESTUTIL.compare(test_sum_numeric_only_is_true_axis1, create_fn=create_df_non_numeric)
     TESTUTIL.compare(test_sum_numeric_only_is_true_axis1, create_fn=create_df_non_numeric1)
     TESTUTIL.compare(test_sum_numeric_only_is_true_axis1, create_fn=create_df_non_numeric2)
     TESTUTIL.compare(test_sum_numeric_only_is_true_axis1, create_fn=creat_issue_df)
+
+    TESTUTIL.compare(test_sum_default, create_fn=TESTUTIL.create_series_range)
+    TESTUTIL.compare(test_sum_default, create_fn=TESTUTIL.create_series_dup)
+    TESTUTIL.compare(test_sum_default, create_fn=TESTUTIL.create_series_bool)
+    TESTUTIL.compare(test_sum_default, create_fn=TESTUTIL.create_series_nan)

@@ -31,26 +31,18 @@ class SumCount:
         self.axis = axis
         self.skipna = skipna
         self.level = level
-        self.sum_numeric_only = numeric_only
+        self.numeric_only = numeric_only
         self.kwargs = kwargs
-        """
-        dataframe.sum skips non-numeric values when numeric_only=None, but dataframe.count does not.
-        We need to make sure we are not including the non-numeric values in our count, otherwise
-        the final reduction will be incorrect.
-        """
-        if numeric_only is None:
-            self.count_numeric_only = True
-        else:
-            self.count_numeric_only = numeric_only
 
     def __call__(self, dataframe):
         result = pandas.DataFrame(
             {
-                "sum": dataframe.sum(axis=self.axis, skipna=self.skipna,
-                                     numeric_only=self.sum_numeric_only),
-                "count": dataframe.count(axis=self.axis, numeric_only=self.count_numeric_only),
+                "sum": dataframe.sum(axis=self.axis, skipna=self.skipna, numeric_only=self.numeric_only),
+                "count": dataframe.count(axis=self.axis, numeric_only=self.numeric_only),
             }
         )
+        if '__unsqueeze_series__' in result.index:
+            result = result.reset_index(drop=True)
         result = result if self.axis else result.T
         return result
 
@@ -342,19 +334,6 @@ class Sum:
         result = result if self.axis else result.T
         return result
 
-class Count:
-    """Return count non-NA cells for each column or row."""
-
-    def __init__(self, axis=0, level=None, numeric_only=False):
-        self.axis = axis
-        self.level = level
-        self.numeric_only = numeric_only
-
-    def __call__(self, dataframe):
-        result = pandas.DataFrame.count(dataframe, axis=self.axis, level=self.level,
-                                        numeric_only=self.numeric_only)
-
-        return result
 
 class ReduceSum:
     """return sum values selected by min_count if given."""
@@ -367,11 +346,23 @@ class ReduceSum:
         self.kwargs = kwargs
 
     def __call__(self, dataframe):
-        sum_val = dataframe["sum"] if self.axis else dataframe.loc["sum"]
+        if self.axis == 0:
+            sum_val = dataframe.loc["sum"]
+            count_val = dataframe.loc["count"]
+            if self.skipna and sum_val.isna().any(axis=None):
+                if isinstance(sum_val, pandas.Series):
+                    sum_val = sum_val.to_frame().T
+                    count_val = count_val.to_frame().T
+                valid_mask = ~(sum_val.reset_index(drop=True).isna() & (count_val.reset_index(drop=True) > 0)).any()
+                sum_val = sum_val.loc[:, valid_mask]
+                count_val = count_val.loc[:, valid_mask]
+        else:
+            sum_val = dataframe["sum"]
+            count_val = dataframe["count"]
+
         if not isinstance(sum_val, pandas.Series):
             sum_val = sum_val.sum(axis=self.axis, skipna=self.skipna)
         if self.min_count > 0:
-            count_val = dataframe["count"] if self.axis else dataframe.loc["count"]
             if not isinstance(count_val, pandas.Series):
                 count_val = count_val.sum(axis=self.axis)
             sum_val = sum_val.where(count_val >= self.min_count)
@@ -387,18 +378,41 @@ class Std:
         self.level = level
         self.ddof = ddof
         self.numeric_only = numeric_only
-        self.is_series = kwargs.pop('is_series')
         self.kwargs = kwargs
 
     def __call__(self, dataframe):
-        result = pandas.DataFrame.std(dataframe, axis=self.axis, skipna=self.skipna,
-                                      level=self.level, ddof=self.ddof,
-                                      numeric_only=self.numeric_only, **self.kwargs)
-        if self.is_series is True:
-            if self.level is None:
-                return result.squeeze()
-            return result.squeeze(1)
-        return result
+        return pandas.DataFrame.std(dataframe, axis=self.axis, skipna=self.skipna, level=self.level, ddof=self.ddof,
+                                    numeric_only=self.numeric_only, **self.kwargs)
+
+
+class Count:
+    """Return count non-NA cells for each column or row."""
+
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+
+    def __call__(self, dataframe):
+        return dataframe.count(**self.kwargs)
+
+
+class Var:
+    """Return unbiased variance over requested axis."""
+
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+
+    def __call__(self, dataframe):
+        return dataframe.var(**self.kwargs)
+
+
+class Prod:
+    """Return the product of the values over the requested axis."""
+
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+
+    def __call__(self, dataframe):
+        return dataframe.prod(**self.kwargs)
 
 
 class Rename:

@@ -344,7 +344,7 @@ class TestUtil:
         data = {'City': ['Beijing', np.nan, 'Tianjin',
                          'Shanghai', 'Hangzhou', 'Chengdou',
                          'Aomen', 'Nanjing'],
-                'AverageIncome': [10000, np.nan, 8000, 15000,
+                'AverageIncome': ['string', np.nan, np.nan, np.nan,
                                   12000, 7000, 10000, 9000],
                 'Popularity': [50000, 40000, 53000, 20000,
                                25000, 10000, 15000, 30000]}
@@ -508,16 +508,6 @@ class TestUtil:
                                'D': [1, 1, 1, 3, 3]})
         return df
 
-    def create_df_duplicates_large(self, module):
-        """
-        Return a DataFrame that has large size duplicated rows.
-        """
-        df = module.DataFrame({'A': [2, 2, 2, 3, 3] * 100,
-                               'B': [2, 2, 3, 2, 2] * 100,
-                               'C': [2, 2, 1, 3, 3] * 100,
-                               'D': [1, 1, 1, 3, 3] * 100})
-        return df
-
     def create_two_dfs(self, module):
         """
         Return two DataFrames.
@@ -657,17 +647,6 @@ class TestUtil:
         ser = module.Series([4, 4, 0, 8], name="legs", index=idx)
         return ser
 
-    def create_hierarchical_series_large(self, module):
-        """
-        Return a hierarchical large scale Series.
-        """
-        idx = pd.MultiIndex.from_arrays([sorted(['a', 'b', 'c', 'd', 'e',
-                                                 'f', 'g', 'h', 'i', 'j'] * 5),
-                                         ['A', 'B', 'C', 'D', 'E'] * 10],
-                                        names=['first', 'second'])
-        ser = module.Series([0, 0, 0, 1, 1] * 10, index=idx)
-        return ser
-
     def create_series_large(self, module):
         """
         Return a large Series with size 100000.
@@ -694,8 +673,7 @@ class TestUtil:
         """
         Return a Series that all values(1000 values) are boolean.
         """
-        np.random.seed(100)
-        bools = np.random.randint(2, size=1000)
+        bools = [True, False, False, False, True, False, True, True]
         ser = module.Series(bools)
         return ser
 
@@ -711,6 +689,13 @@ class TestUtil:
         Return a Series that all values are 0.
         """
         ser = module.Series([0] * self.rows)
+        return ser
+
+    def create_series_mixed_dtype(self, module):
+        """
+        Return a Series with mixed dtype.
+        """
+        ser = module.Series(["a", 1, 2, 3, np.nan])
         return ser
 
     def create_two_series(self, module):

@@ -19,6 +19,7 @@
 "mindpandas/mindpandas/dataframe.py"                                                   "Access to a protected member _construct_axes_from_arguments of a client class"
 "mindpandas/mindpandas/dataframe.py"                                                   "Access to a protected member _validate_string_func of a client class"
 "mindpandas/mindpandas/dataframe.py"                                                   "Access to a protected member _get_axis_name of a client class"
+"mindpandas/mindpandas/dataframe.py"                                                   "Access to a protected member _stat_op of a client class"
 "mindpandas/mindpandas/dataframe.py"                                                   "Do not use `len(SEQUENCE)` to determine if a sequence is empty"
 "mindpandas/mindpandas/dataframe.py"                                                   "Keyword argument before variable positional arguments list in the definition of agg function"
 "mindpandas/mindpandas/dataframe.py"                                                   "Unused argument"

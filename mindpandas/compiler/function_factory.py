@@ -76,10 +76,6 @@ class FunctionFactory:
         return cls.ff_.Sum(axis=axis, skipna=skipna, numeric_only=numeric_only, **kwargs)
 
     @classmethod
-    def count(cls, axis=0, level=None, numeric_only=False):
-        return cls.ff_.Count(axis=axis, level=level, numeric_only=numeric_only)
-
-    @classmethod
     def reduce_sum(cls, axis=None, skipna=True, numeric_only=None, min_count=0, **kwargs):
         return cls.ff_.ReduceSum(axis=axis,
                                  skipna=skipna,
@@ -95,6 +91,18 @@ class FunctionFactory:
                            ddof=ddof,
                            numeric_only=numeric_only,
                            **kwargs)
+
+    @classmethod
+    def count(cls, **kwargs):
+        return cls.ff_.Count(**kwargs)
+
+    @classmethod
+    def var(cls, **kwargs):
+        return cls.ff_.Var(**kwargs)
+
+    @classmethod
+    def prod(cls, **kwargs):
+        return cls.ff_.Prod(**kwargs)
 
     @classmethod
     def rename(cls,
@@ -176,19 +184,11 @@ class FunctionFactory:
 
     @classmethod
     def max(cls, axis=None, skipna=True, level=None, numeric_only=None, **kwargs):
-        return cls.ff_.Max(axis=axis,
-                           skipna=skipna,
-                           level=level,
-                           numeric_only=numeric_only,
-                           **kwargs)
+        return cls.ff_.Max(axis=axis, skipna=skipna, level=level, numeric_only=numeric_only, **kwargs)
 
     @classmethod
     def min(cls, axis=None, skipna=True, level=None, numeric_only=None, **kwargs):
-        return cls.ff_.Min(axis=axis,
-                           skipna=skipna,
-                           level=level,
-                           numeric_only=numeric_only,
-                           **kwargs)
+        return cls.ff_.Min(axis=axis, skipna=skipna, level=level, numeric_only=numeric_only, **kwargs)
 
     @classmethod
     def math_op(cls, opr, axis='columns', level=None, fill_value=None):
@@ -281,6 +281,7 @@ class FunctionFactory:
                                  sort_remaining=sort_remaining,
                                  ignore_index=ignore_index,
                                  key=key)
+
     @classmethod
     def reset_index(cls):
         return cls.ff_.ResetIndex()

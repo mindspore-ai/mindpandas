@@ -23,7 +23,7 @@ import pandas
 from pandas._libs.lib import no_default, is_scalar
 from pandas.api.types import is_bool
 from pandas.core.common import apply_if_callable, is_bool_indexer
-from pandas.core.dtypes.common import is_list_like
+from pandas.core.dtypes.common import is_list_like, is_numeric_dtype
 from pandas.core.indexing import convert_to_index_sliceable
 from pandas.util._validators import validate_bool_kwarg
 
@@ -31,7 +31,7 @@ import mindpandas as mpd
 from mindpandas.backend.base_frame import BaseFrame
 from mindpandas.backend.eager.eager_frame import EagerFrame
 from .backend.base_io import BaseIO
-from .util import is_full_grab_slice
+from .util import is_full_grab_slice, NO_VALUE
 from .iterator import DataFrameIterator
 
 
@@ -291,36 +291,81 @@ class Series:
             return self.to_pandas().squeeze()
         return copy.copy(self)
 
-    def _statistic_operation(self, op_name, axis=None, skipna=True,
-                             level=None, numeric_only=None, **kwargs):
-        """Do common statistic reduce operations under Series."""
-        axis = self._get_axis_number(axis)
+    def _stat_op(self, op_name, **kwargs):
+        """
+        Do common statistic reduce operations under frame.
+        Args:
+            op_name : str. Name of method to apply.
+            **kwargs : dict. Additional keyword arguments to pass to `op_name`.
+        Returns:
+            scalar, Series or DataFrame
+        """
+        if op_name not in {"max", "min", "median", "mean", "count", "sum", "std", "var", "prod"}:
+            raise NotImplementedError("Operation not supported")
 
-        if level is not None:
-            return self._qc.default_to_pandas(df=self, df_method=op_name, axis=axis,
-                                              skipna=skipna, level=level,
-                                              numeric_only=numeric_only, force_series=True,
-                                              **kwargs)
+        numeric_only = kwargs.get("numeric_only", NO_VALUE)
+        if numeric_only is True:
+            raise NotImplementedError(f"Series.{op_name} does not implement numeric_only.")
 
-        if numeric_only is not None:
-            raise NotImplementedError(
-                "numeric_only is not implemented for mindspore.Series")
+        axis = kwargs.get("axis", NO_VALUE)
+        if axis is not NO_VALUE:
+            axis = self._get_axis_number(axis)
+            kwargs["axis"] = axis
 
-        output_dataframe = getattr(self._qc, op_name)(self,
-                                                      axis,
-                                                      skipna,
-                                                      level,
-                                                      numeric_only,
-                                                      **kwargs)
-        return output_dataframe
+        level = kwargs.get("level", NO_VALUE)
+        if level is not NO_VALUE and level is not None:
+            return self._qc.default_to_pandas(df=self, df_method=op_name, force_series=True, **kwargs)
 
-    def mean(self, axis=None, skipna=True, level=None, numeric_only=None, **kwargs):
-        """Return mean of series."""
-        return self._statistic_operation("mean", axis, skipna, level, numeric_only, **kwargs)
+        return self._qc.stat_op(self, op_name=op_name, **kwargs)
+
+    def max(self, axis=None, skipna=True, level=None, numeric_only=None, **kwargs):
+        return self._stat_op("max", axis=axis, skipna=skipna, level=level, numeric_only=numeric_only, **kwargs)
+
+    def min(self, axis=None, skipna=True, level=None, numeric_only=None, **kwargs):
+        return self._stat_op("min", axis=axis, skipna=skipna, level=level, numeric_only=numeric_only, **kwargs)
 
     def median(self, axis=None, skipna=True, level=None, numeric_only=None, **kwargs):
-        """Return median of series."""
-        return self._statistic_operation("median", axis, skipna, level, numeric_only, **kwargs)
+        return self._stat_op("median", axis=axis, skipna=skipna, level=level, numeric_only=numeric_only, **kwargs)
+
+    def mean(self, axis=None, skipna=True, level=None, numeric_only=None, **kwargs):
+        if not is_numeric_dtype(self.dtype):
+            raise TypeError("unsupported operand type")
+        return self._stat_op("mean", axis=axis, skipna=skipna, level=level, numeric_only=numeric_only, **kwargs)
+
+    def count(self, level=None):
+        return self._stat_op("count", level=level)
+
+    def std(self, axis=None, skipna=True, level=None, ddof=1, numeric_only=None, **kwargs):
+        return self._stat_op("std", axis=axis, skipna=skipna, level=level, ddof=ddof, numeric_only=numeric_only,
+                             **kwargs)
+
+    def var(self, axis=None, skipna=True, level=None, ddof=1, numeric_only=None, **kwargs):
+        return self._stat_op("var", axis=axis, skipna=skipna, level=level, ddof=ddof, numeric_only=numeric_only,
+                             **kwargs)
+
+    def sum(self, axis=None, skipna=True, level=None, numeric_only=None, min_count=0, **kwargs):
+        return self._stat_op("sum", axis=axis, skipna=skipna, level=level, numeric_only=numeric_only,
+                             min_count=min_count, **kwargs)
+
+    def prod(self, axis=None, skipna=True, level=None, numeric_only=None, min_count=0, **kwargs):
+        return self._stat_op("prod", axis=axis, skipna=skipna, level=level, numeric_only=numeric_only,
+                             min_count=min_count, **kwargs)
+
+    product = prod
+
+    def _logical_op(self, op_name, axis, bool_only=None, **kwargs):
+        if op_name not in {"all", "any"}:
+            raise NotImplementedError("Operation not supported")
+        axis = self._get_axis_number(axis)
+        if bool_only is not None and bool_only is not False:
+            raise NotImplementedError(f"Series.{op_name} does not implement numeric_only.")
+        return self._qc.logical_op(self, op_name=op_name, axis=axis, bool_only=bool_only, **kwargs)
+
+    def all(self, axis=0, bool_only=None, skipna=True, level=None, **kwargs):
+        return self._logical_op("all", axis=axis, bool_only=bool_only, skipna=skipna, level=level, **kwargs)
+
+    def any(self, axis=0, bool_only=None, skipna=True, level=None, **kwargs):
+        return self._logical_op("any", axis=axis, bool_only=bool_only, skipna=skipna, level=level, **kwargs)
 
     def _get_axis_number(self, axis):
         """Get axis number, 0 or 1."""
@@ -701,55 +746,6 @@ class Series:
         """Returns series indicating whether element is Nan."""
         return self.isna()
 
-    def max(self, axis=None, skipna=True, level=None, numeric_only=None, **kwargs):
-        """Returns max of series."""
-        axis = self._get_axis_number(axis)
-        result = self._qc.max(self, axis=axis, skipna=skipna,
-                              level=level, numeric_only=numeric_only, **kwargs)
-        return result
-
-    def min(self, axis=None, skipna=True, level=None, numeric_only=None, **kwargs):
-        """Returns min of series."""
-        axis = self._get_axis_number(axis)
-        result = self._qc.min(self, axis=axis, skipna=skipna,
-                              level=level, numeric_only=numeric_only, **kwargs)
-        return result
-
-    def std(self, axis=None, skipna=True, level=None, ddof=1, numeric_only=None, **kwargs):
-        """Returns standard deviation of series."""
-        return self._statistic_operation("std",
-                                         axis,
-                                         skipna,
-                                         level,
-                                         numeric_only,
-                                         ddof=ddof,
-                                         **kwargs)
-
-    def all(self, axis=0, bool_only=None, skipna=True, level=None, **kwargs):
-        """Returns true if all elements are true."""
-        axis = self._get_axis_number(axis)
-        if bool_only is not None and (not isinstance(bool_only, bool) or bool_only is True):
-            raise NotImplementedError("Series.all does not implement numeric_only.")
-        return self._qc.all(self,
-                            axis=axis,
-                            bool_only=bool_only,
-                            skipna=skipna,
-                            level=level,
-                            **kwargs)
-
-    def any(self, axis=0, bool_only=None, skipna=True, level=None, **kwargs):
-        """Returns true if any element is true."""
-        axis = self._get_axis_number(axis)
-        if bool_only is not None and (not isinstance(bool_only, bool) or bool_only is True):
-            raise NotImplementedError(
-                "Series.any does not implement numeric_only.")
-        return self._qc.any(self,
-                            axis=axis,
-                            bool_only=bool_only,
-                            skipna=skipna,
-                            level=level,
-                            **kwargs)
-
     def astype(self, dtype, copy=True, errors='raise'):
         """Cast a pandas object to a specified dtype.
 
@@ -882,32 +878,6 @@ class Series:
 
     def cumprod(self, axis=None, skipna=True, **kwargs):
         return self._cum_op(method='cumprod', axis=axis, skipna=skipna, **kwargs)
-
-    def sum(self, axis=None, skipna=True, level=None, numeric_only=None, min_count=0, **kwargs):
-        """Returns sum of the values over the specified axis."""
-        axis = self._get_axis_number(axis)
-
-        if level is not None:
-            return self._qc.default_to_pandas(df=self,
-                                              df_method=self.sum,
-                                              axis=axis,
-                                              skipna=skipna,
-                                              level=level,
-                                              numeric_only=numeric_only,
-                                              force_series=True,
-                                              min_count=min_count,
-                                              **kwargs)
-
-        if numeric_only is None:
-            numeric_only = True
-
-        output_dataframe = self._qc.sum(self,
-                                        axis=axis,
-                                        skipna=skipna,
-                                        numeric_only=numeric_only,
-                                        min_count=min_count,
-                                        **kwargs)
-        return output_dataframe
 
     _comp_op_name_mapping = {'eq': '__eq__', 'le': '__le__', 'lt': '__lt__',
                              'ge': '__ge__', 'gt': '__gt__', 'ne': '__ne__'}

@@ -98,3 +98,5 @@ def is_full_grab_slice(slc, sequence_len=None):
 
 
 NaT = pandas.NaT
+
+NO_VALUE = NotImplemented

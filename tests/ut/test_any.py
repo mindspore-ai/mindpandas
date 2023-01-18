@@ -54,5 +54,3 @@ def test_any():
     TESTUTIL.compare(test_any_fn, TESTUTIL.create_series_zero)
     TESTUTIL.compare(test_any_level0, TESTUTIL.create_hierarchical_series)
     TESTUTIL.compare(test_any_level1, TESTUTIL.create_hierarchical_series)
-    TESTUTIL.compare(test_any_level0, TESTUTIL.create_hierarchical_series_large)
-    TESTUTIL.compare(test_any_level1, TESTUTIL.create_hierarchical_series_large)

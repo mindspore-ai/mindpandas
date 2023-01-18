@@ -33,9 +33,7 @@ import mindpandas as mpd
 from mindpandas.backend.base_frame import BaseFrame
 from . import internal_config as i_config
 from .iterator import DataFrameIterator
-from .util import is_full_grab_slice, hashable
-
-_novalue = object()
+from .util import is_full_grab_slice, hashable, NO_VALUE
 
 
 class DataFrame:
@@ -110,27 +108,20 @@ class DataFrame:
         num_rows, num_cols = self.backend_frame.shape
         return num_rows == 0 or num_cols == 0
 
-    def _validate_dtypes(self, numeric_only=False):
-        """
-        Check if the dtypes of each column are the same.
-        Args:
-        numeric_only: bool, default is False. Whether or not to allow only the numeric data.
-            If numeric_only is True and non-numeric data is found, exception will be raised.
-        """
-        dtype = self.dtypes[0]
-        for tp in self.dtypes:
-            if numeric_only and not is_numeric_dtype(tp):
-                raise TypeError(f"{tp} is not a numeric data type.")
-            if not numeric_only and tp != dtype:
-                raise TypeError(f"Cannot compare type '{tp}' with '{dtype}'")
+    def _get_numeric_data(self):
+        """Remove non-numeric columns"""
+        column_dtypes = self.dtypes
+        non_numeric_columns = [i for i in column_dtypes.index if not is_numeric_dtype(column_dtypes[i])]
+        if non_numeric_columns:
+            return self.drop(columns=non_numeric_columns)
+        return self
 
-    def _statistic_operation(self, op_name, axis=None, skipna=True, level=None, numeric_only=None, **kwargs):
+    def _stat_op(self, op_name, axis, level, numeric_only, **kwargs):
         """
         Do common statistic reduce operations under frame.
         Args:
             op_name : str. Name of method to apply.
             axis : int or str. Axis to apply method on.
-            skipna : bool. Exclude NA/null values when computing the result.
             level : int or str. If specified `axis` is a MultiIndex, applying method along a particular level,
                 collapsing into a Series.
             numeric_only : bool, optional. Include only float, int, boolean columns. If None, will attempt to use
@@ -139,32 +130,91 @@ class DataFrame:
         Returns:
             scalar, Series or DataFrame
         """
+        if op_name not in {"max", "min", "median", "mean", "count", "sum", "std", "var", "prod"}:
+            raise NotImplementedError("Operation not supported")
+
         axis = self._get_axis_number(axis)
 
+        # NOTE: level has been deprecated since Pandas version 1.3.0
         if level is not None:
-            return self._qc.default_to_pandas(df=self, df_method=op_name, axis=axis, skipna=skipna, level=level,
+            return self._qc.default_to_pandas(df=self, df_method=op_name, axis=axis, level=level,
                                               numeric_only=numeric_only, **kwargs)
 
-        if not numeric_only or not isinstance(numeric_only, bool):
-            try:
-                self._validate_dtypes(numeric_only=True)
-            except TypeError:
-                if numeric_only is not None:
-                    raise
-            else:
-                numeric_only = False
+        # According to Pandas(1.3.5) implementation:
+        # If numeric_only is True, non-numeric columns or rows are dropped before calculation.
+        # If numeric_only is False, attempt to use everything, raise a TypeError if the element convert failed.
+        # If numeric_only is None, attempt to use everything, and conversion errors are ignored.
+        # If numeric_only is a value other than the above, treated as False.
+        if numeric_only is True:
+            input_dataframe = self._get_numeric_data()
+            numeric_only = False
+        else:
+            input_dataframe = self
 
-        data = (
-            self._get_numeric_data(axis)
-            if numeric_only is None or numeric_only
-            else self
-        )
+        return self._qc.stat_op(input_dataframe, op_name=op_name, axis=axis, level=level, numeric_only=numeric_only,
+                                **kwargs)
 
-        output_dataframe = getattr(self._qc, op_name)(data, axis, skipna, level, numeric_only, **kwargs)
-        return output_dataframe
+    def max(self, axis=None, skipna=True, level=None, numeric_only=None, **kwargs):
+        return self._stat_op("max", axis=axis, skipna=skipna, level=level, numeric_only=numeric_only, **kwargs)
+
+    def min(self, axis=None, skipna=True, level=None, numeric_only=None, **kwargs):
+        return self._stat_op("min", axis=axis, skipna=skipna, level=level, numeric_only=numeric_only, **kwargs)
+
+    def median(self, axis=None, skipna=True, level=None, numeric_only=None, **kwargs):
+        return self._stat_op("median", axis=axis, skipna=skipna, level=level, numeric_only=numeric_only, **kwargs)
 
     def mean(self, axis=None, skipna=True, level=None, numeric_only=None, **kwargs):
-        return self._statistic_operation("mean", axis, skipna, level, numeric_only, **kwargs)
+        if numeric_only is True or numeric_only is None:
+            df = self._get_numeric_data()
+            return df._stat_op("mean", axis=axis, skipna=skipna, level=level, numeric_only=False, **kwargs)
+        for t in self.dtypes:
+            if not is_numeric_dtype(t):
+                raise TypeError(f"{t} is not a numeric data type.")
+        return self._stat_op("mean", axis=axis, skipna=skipna, level=level, numeric_only=numeric_only, **kwargs)
+
+    def count(self, axis=0, level=None, numeric_only=False):
+        return self._stat_op("count", axis=axis, level=level, numeric_only=numeric_only)
+
+    def std(self, axis=None, skipna=True, level=None, ddof=1, numeric_only=None, **kwargs):
+        return self._stat_op("std", axis=axis, skipna=skipna, level=level, ddof=ddof, numeric_only=numeric_only,
+                             **kwargs)
+
+    def var(self, axis=None, skipna=True, level=None, ddof=1, numeric_only=None, **kwargs):
+        return self._stat_op("var", axis=axis, skipna=skipna, level=level, ddof=ddof, numeric_only=numeric_only,
+                             **kwargs)
+
+    def sum(self, axis=None, skipna=True, level=None, numeric_only=None, min_count=0, **kwargs):
+        return self._stat_op("sum", axis=axis, skipna=skipna, level=level, numeric_only=numeric_only,
+                             min_count=min_count, **kwargs)
+
+    def prod(self, axis=None, skipna=True, level=None, numeric_only=None, min_count=0, **kwargs):
+        return self._stat_op("prod", axis=axis, skipna=skipna, level=level, numeric_only=numeric_only,
+                             min_count=min_count, **kwargs)
+
+    product = prod
+
+    def _logical_op(self, op_name, axis, bool_only, level, **kwargs):
+        """Perform common logical operations"""
+        if op_name not in {"all", "any"}:
+            raise NotImplementedError("Operation not supported")
+        if level is not None:
+            if bool_only is not None:
+                raise NotImplementedError("Option bool_only is not implemented with option level.")
+            if not self._qc.has_multiindex(self, axis) and (level > 0 or level < -1) and level != self.index.name:
+                raise ValueError("level > 0 or level < -1 only valid with MultiIndex")
+        if axis is None:
+            # Reduce along one dimension then the other
+            result = self._qc.logical_op(self, op_name=op_name, axis=0, bool_only=bool_only, level=level, **kwargs)
+            return getattr(result.to_pandas(), op_name)(bool_only=bool_only, level=level, **kwargs)
+
+        axis = self._get_axis_number(axis)
+        return self._qc.logical_op(self, op_name=op_name, axis=axis, bool_only=bool_only, level=level, **kwargs)
+
+    def all(self, axis=0, bool_only=None, skipna=True, level=None, **kwargs):
+        return self._logical_op("all", axis=axis, bool_only=bool_only, skipna=skipna, level=level, **kwargs)
+
+    def any(self, axis=0, bool_only=None, skipna=True, level=None, **kwargs):
+        return self._logical_op("any", axis=axis, bool_only=bool_only, skipna=skipna, level=level, **kwargs)
 
     def fillna(self,
                value=None,
@@ -264,44 +314,6 @@ class DataFrame:
                                                                                    fill_axis=fill_axis,
                                                                                    broadcast_axis=broadcast_axis)
         return (output_dataframe_left, output_dataframe_right)
-
-    def all(self, axis=0, bool_only=None, skipna=True, level=None, **kwargs):
-        """
-        Return True if all elements are True.
-        """
-        if level is not None:
-            if bool_only is not None:
-                raise NotImplementedError("Option bool_only is not implemented with option level.")
-            if not self._qc.has_multiindex(self, axis) and (level > 0 or level < -1) and level != self.index.name:
-                raise ValueError("level > 0 or level < -1 only valid with MultiIndex")
-        if axis is None:
-            # Reduce along one dimension into series
-            result = self._qc.all(self, axis=0, bool_only=bool_only, skipna=skipna, level=level, **kwargs)
-
-            # Reduce series to single bool
-            return result.to_pandas().all(bool_only=bool_only, skipna=skipna, level=level, **kwargs)
-
-        axis = self._get_axis_number(axis)
-        return self._qc.all(self, axis=axis, bool_only=bool_only, skipna=skipna, level=level, **kwargs)
-
-    def any(self, axis=0, bool_only=None, skipna=True, level=None, **kwargs):
-        """
-        Return True if any element is True.
-        """
-        if level is not None:
-            if bool_only is not None:
-                raise NotImplementedError("Option bool_only is not implemented with option level.")
-            if not self._qc.has_multiindex(self, axis) and (level > 0 or level < -1) and level != self.index.name:
-                raise ValueError("level > 0 or level < -1 only valid with MultiIndex")
-        if axis is None:
-            # Reduce along one dimension into series
-            result = self._qc.any(self, axis=0, bool_only=bool_only, skipna=skipna, level=level, **kwargs)
-
-            # Reduce series to single bool
-            return result.to_pandas().any(bool_only=bool_only, skipna=skipna, level=level, **kwargs)
-
-        axis = self._get_axis_number(axis)
-        return self._qc.any(self, axis=axis, bool_only=bool_only, skipna=skipna, level=level, **kwargs)
 
     def apply(self, func, axis=0, raw=False, result_type=None, args=(), **kwargs):
         """
@@ -413,7 +425,7 @@ class DataFrame:
     def groupby(
             self,
             by=None,
-            axis=_novalue,
+            axis=NO_VALUE,
             level=None,
             as_index=True,
             sort=True,
@@ -432,7 +444,7 @@ class DataFrame:
         else:
             squeeze = False
 
-        if axis is _novalue:  # axis is not passing then default to 0, if passing None to axis then None
+        if axis is NO_VALUE:  # axis is not passing then default to 0, if passing None to axis then None
             axis = 0
         if axis not in (0, 1, 'index', 'columns'):
             raise ValueError(f"No axis named {axis} for object type DataFrame")
@@ -454,53 +466,6 @@ class DataFrame:
             observed=observed,
             dropna=dropna,
         )
-
-    def sum(self, axis=None, skipna=True, level=None, numeric_only=None, min_count=0, **kwargs):
-        """
-        Return the sum of the values over the requested axis.
-        """
-        if axis is None:
-            axis = 0
-        axis = self._get_axis_number(axis)
-
-        if level is not None:
-            return self._qc.default_to_pandas(df=self, df_method=self.sum, axis=axis, skipna=skipna, level=level,
-                                              numeric_only=numeric_only, min_count=min_count, **kwargs)
-
-        if not isinstance(numeric_only, bool):
-            numeric_only = False
-
-        data = self._get_numeric_data(axis) if numeric_only else self
-
-        output_dataframe = self._qc.sum(input_dataframe=data, axis=axis, skipna=skipna, numeric_only=numeric_only,
-                                        min_count=min_count,
-                                        **kwargs)
-        return output_dataframe
-
-    def max(self, axis=None, skipna=True, level=None, numeric_only=None, **kwargs):
-        """
-        Return the maximum of the values over the requested axis.
-        """
-        axis = self._get_axis_number(axis) if axis is not None else 0
-        if numeric_only is True:
-            return self._qc.default_to_pandas(df=self, df_method="max", axis=axis, skipna=skipna, level=level,
-                                              numeric_only=numeric_only, **kwargs)
-        result = self._qc.max(self, axis=axis, skipna=skipna, level=level, numeric_only=numeric_only, **kwargs)
-        return result
-
-    def min(self, axis=None, skipna=True, level=None, numeric_only=None, **kwargs):
-        """
-        Return the minimum of the values over the requested axis.
-        """
-        axis = self._get_axis_number(axis) if axis is not None else 0
-        if numeric_only is True:
-            return self._qc.default_to_pandas(df=self, df_method="min", axis=axis, skipna=skipna, level=level,
-                                              numeric_only=numeric_only, **kwargs)
-        result = self._qc.min(self, axis=axis, skipna=skipna, level=level, numeric_only=numeric_only, **kwargs)
-        return result
-
-    def std(self, axis=None, skipna=True, level=None, ddof=1, numeric_only=None, **kwargs):
-        return self._statistic_operation("std", axis, skipna, level, numeric_only, ddof=ddof, **kwargs)
 
     def add(self, other, axis='columns', level=None, fill_value=None):
         return self._math_op("add", other, axis, level, fill_value)
@@ -696,15 +661,6 @@ class DataFrame:
                     axes["columns"] = None
 
         return self._qc.drop(self, index=axes["index"], columns=axes["columns"], inplace=inplace)
-
-    def count(self, axis=0, level=None, numeric_only=False):
-        axis = self._get_axis_number(axis)
-
-        if level is not None:
-            return self._qc.default_to_pandas(df=self, df_method="count", axis=axis, level=level,
-                                              numeric_only=numeric_only)
-
-        return self._qc.count(self, axis=axis, level=level, numeric_only=numeric_only)
 
     def duplicated(self, subset=None, keep="first"):
         output_dataframe = self._qc.duplicated(self, subset=subset, keep=keep)
@@ -1668,18 +1624,6 @@ class DataFrame:
         if not isinstance(frame, BaseFrame):
             raise TypeError(f"Can only inplace update a DataFrame with a BaseFrame instance")
         self.backend_frame = frame
-
-    def median(self, axis=None, skipna=True, level=None, numeric_only=None, **kwargs):
-        return self._statistic_operation("median", axis, skipna, level, numeric_only, **kwargs)
-
-    def _get_numeric_data(self, axis: int):
-        if axis != 0:
-            return self
-        return self.drop(
-            columns=[
-                i for i in self.backend_frame.dtypes.index if not is_numeric_dtype(self.backend_frame.dtypes[i])
-            ]
-        )
 
     def replace(self, to_replace=None, value=None, inplace=False, limit=None, regex=False, method='pad'):
         inplace = validate_bool_kwarg(inplace, "inplace")
