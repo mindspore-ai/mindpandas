@@ -32,6 +32,7 @@ from mindpandas.backend.base_frame import BaseFrame
 from mindpandas.backend.eager.eager_frame import EagerFrame
 from .backend.base_io import BaseIO
 from .util import is_full_grab_slice
+from .iterator import DataFrameIterator
 
 
 class Series:
@@ -89,6 +90,16 @@ class Series:
         """Access a group of rows and columns by integer-location based indexing."""
         from .index import _ILoc
         return _ILoc(self)
+
+    def head(self, n=5):
+        """Return the first n rows."""
+        return self.iloc[:n]
+
+    def tail(self, n=5):
+        """Return the last n rows."""
+        if n == 0:
+            return self.iloc[self.backend_frame.num_rows:]
+        return self.iloc[-n:]
 
     @name.setter
     def name(self, value):
@@ -911,3 +922,25 @@ class Series:
                     return self._qc.default_to_pandas(self, item, *args, force_series=True, **kwargs)
                 return default_func
         return attr
+
+    def item(self):
+        """Return the first element of the underlying data as a Python scalar."""
+        if len(self) != 1:
+            raise ValueError("can only convert an array of size 1 to a Python scalar.")
+        obj = self[0]
+        if hasattr(obj, 'dtype'):
+            obj = obj.item()
+        return obj
+
+    def items(self):
+        """Lazily iterate over (index, value) tuples."""
+        df_iterator = DataFrameIterator(self.to_frame(), 0)
+        for t in df_iterator:
+            yield t[0], t[1].squeeze()
+
+    def isin(self, values):
+        """Whether elements in Series are contained in value."""
+        if isinstance(values, (mpd.DataFrame, mpd.Series)):
+            values = values.to_pandas()
+        output = self._qc.isin(input_dataframe=self, values=values)
+        return output

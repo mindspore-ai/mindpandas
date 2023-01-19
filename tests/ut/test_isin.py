@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 import pytest
+import numpy as np
 
 from util import TESTUTIL
 
@@ -41,3 +42,20 @@ def test_isin():
 
     TESTUTIL.compare(test_isin_list, create_fn=TESTUTIL.create_df_range)
     TESTUTIL.compare(test_isin_series, create_fn=create_df_isin)
+
+
+@pytest.mark.usefixtures("set_mode", "set_shape")
+def test_series_isin():
+    """
+    Test isin
+    Description: tests Series.isin()
+    Expectation: same output as pandas.Series.isin()
+    """
+    def create_series_isin(module):
+        return module.Series(np.random.randint(1, 6, 100))
+
+    def test_series_isin_list(ser):
+        result = ser.isin([1, 2, 3])
+        return result
+
+    TESTUTIL.compare(test_series_isin_list, create_fn=create_series_isin)

@@ -839,12 +839,11 @@ class QueryCompiler:
         return result[0]
 
     @classmethod
-    def isin(cls, **kwargs):
+    def isin(cls, input_dataframe, **kwargs):
         """Compiling isin"""
-        input_dataframe = kwargs.pop("input_dataframe", None)
         func = ff.isin(**kwargs)
         frame = input_dataframe.backend_frame.map(func)
-        return mpd.DataFrame(data=frame)
+        return type(input_dataframe)(data=frame)
 
     @classmethod
     def dropna(cls, input_dataframe, axis, how, thresh, subset, inplace):

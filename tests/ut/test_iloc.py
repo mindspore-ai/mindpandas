@@ -77,61 +77,48 @@ def test_iloc():
         return pandas_df
 
     def test_iloc_with_list_of_integers(df):
-        print(df.iloc[[0, 1]])
         return df.iloc[[0, 1]]
 
     def test_iloc_with_slice(df):
-        print(df.iloc[0: 2])
         return df.iloc[0: 2]
 
     def test_iloc_with_boolean_array(df):
-        print(df.iloc[[True, False, True]])
         return df.iloc[[True, False, True]]
 
     def test_iloc_for_row_and_column_1(df):
-        print(df.iloc[[1, 2], [1, 3]])
         return df.iloc[[1, 2], [1, 3]]
 
     def test_iloc_for_row_and_column_2(df):
-        print(df.iloc[1:3, 0:2])
         return df.iloc[1:3, 0:2]
 
     def test_iloc_default1(df):
-        print(df.iloc[:2])
         return df.iloc[:2]
 
     def test_iloc_default2(df):
-        print(df.iloc[-2:])
         return df.iloc[-2:]
 
     def test_iloc_default3(df):
-        print(df.iloc[:])
         return df.iloc[:]
 
     def test_iloc_default4(df):
-        print(df.iloc[::-1])
         return df.iloc[::-1]
 
     def test_iloc_default5(df):
-        print(df.iloc[5:8])
         return df.iloc[5:8]
 
     def test_iloc_default6(df):
-        print(df.iloc[1:8])
         return df.iloc[1:8]
 
     def test_iloc_default7(df):
-        print(df.iloc[-5:])
         return df.iloc[-5:]
 
     def test_head(df):
-        print(df.head())
         return df.head()
 
     def test_tail(df):
-        print(df.tail())
         return df.tail()
 
+    # ====================DataFrame Testcases====================
     TESTUTIL.compare(test_iloc_with_list_of_integers,
                      create_fn=create_iloc_default_to_pandas_test_frame)
     TESTUTIL.compare(test_iloc_with_slice, create_fn=create_iloc_default_to_pandas_test_frame)
@@ -150,3 +137,15 @@ def test_iloc():
     TESTUTIL.compare(test_iloc_default7, create_fn=create_iloc_default_to_pandas_test_frame)
     TESTUTIL.compare(test_head, create_fn=create_iloc_default_to_pandas_test_frame)
     TESTUTIL.compare(test_tail, create_fn=create_iloc_default_to_pandas_test_frame)
+    # ====================Series Testcases====================
+    TESTUTIL.compare(test_iloc_with_list_of_integers, create_fn=TESTUTIL.create_series_range)
+    TESTUTIL.compare(test_iloc_with_slice, create_fn=TESTUTIL.create_series_range)
+    TESTUTIL.compare(test_iloc_default1, create_fn=TESTUTIL.create_series_range)
+    TESTUTIL.compare(test_iloc_default2, create_fn=TESTUTIL.create_series_range)
+    TESTUTIL.compare(test_iloc_default3, create_fn=TESTUTIL.create_series_range)
+    TESTUTIL.compare(test_iloc_default4, create_fn=TESTUTIL.create_series_range)
+    TESTUTIL.compare(test_iloc_default5, create_fn=TESTUTIL.create_series_range)
+    TESTUTIL.compare(test_iloc_default6, create_fn=TESTUTIL.create_series_range)
+    TESTUTIL.compare(test_iloc_default7, create_fn=TESTUTIL.create_series_range)
+    TESTUTIL.compare(test_head, create_fn=TESTUTIL.create_series_range)
+    TESTUTIL.compare(test_tail, create_fn=TESTUTIL.create_series_range)
