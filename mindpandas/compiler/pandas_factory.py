@@ -342,6 +342,19 @@ class Sum:
         result = result if self.axis else result.T
         return result
 
+class Count:
+    """Return count non-NA cells for each column or row."""
+
+    def __init__(self, axis=0, level=None, numeric_only=False):
+        self.axis = axis
+        self.level = level
+        self.numeric_only = numeric_only
+
+    def __call__(self, dataframe):
+        result = pandas.DataFrame.count(dataframe, axis=self.axis, level=self.level,
+                                        numeric_only=self.numeric_only)
+
+        return result
 
 class ReduceSum:
     """return sum values selected by min_count if given."""

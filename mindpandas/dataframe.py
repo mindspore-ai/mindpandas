@@ -697,6 +697,15 @@ class DataFrame:
 
         return self._qc.drop(self, index=axes["index"], columns=axes["columns"], inplace=inplace)
 
+    def count(self, axis=0, level=None, numeric_only=False):
+        axis = self._get_axis_number(axis)
+
+        if level is not None:
+            return self._qc.default_to_pandas(df=self, df_method="count", axis=axis, level=level,
+                                              numeric_only=numeric_only)
+
+        return self._qc.count(self, axis=axis, level=level, numeric_only=numeric_only)
+
     def duplicated(self, subset=None, keep="first"):
         output_dataframe = self._qc.duplicated(self, subset=subset, keep=keep)
         return output_dataframe

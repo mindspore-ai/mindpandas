@@ -76,6 +76,10 @@ class FunctionFactory:
         return cls.ff_.Sum(axis=axis, skipna=skipna, numeric_only=numeric_only, **kwargs)
 
     @classmethod
+    def count(cls, axis=0, level=None, numeric_only=False):
+        return cls.ff_.Count(axis=axis, level=level, numeric_only=numeric_only)
+
+    @classmethod
     def reduce_sum(cls, axis=None, skipna=True, numeric_only=None, min_count=0, **kwargs):
         return cls.ff_.ReduceSum(axis=axis,
                                  skipna=skipna,

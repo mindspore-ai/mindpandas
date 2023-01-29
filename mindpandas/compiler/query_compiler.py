@@ -763,6 +763,12 @@ class QueryCompiler:
         return result[0]
 
     @classmethod
+    def count(cls, input_dataframe, axis, level, numeric_only):
+        func = ff.count(axis=axis, level=level, numeric_only=numeric_only)
+        result = input_dataframe.backend_frame.reduce(func, axis=axis)
+        return mpd.Series(data=result)
+
+    @classmethod
     def std(cls, input_dataframe, axis, skipna, level, numeric_only, **kwargs):
         """Compiling std"""
         ddof = kwargs.pop("ddof")
