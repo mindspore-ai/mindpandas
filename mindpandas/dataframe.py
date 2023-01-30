@@ -1382,6 +1382,16 @@ class DataFrame:
             return None
         return output_dataframe
 
+    def memory_usage(self, index=True, deep=False):
+        """
+        Return the memory usage of each column in bytes.
+        """
+        if index:
+            result = self._qc.memory_usage(self, index=False, deep=deep)
+            index_value = self.index.memory_usage(deep=deep)
+            return mpd.concat([mpd.Series(index_value, index=["Index"]), result])
+        return self._qc.memory_usage(self, index=index, deep=deep)
+
     def applymap(self, func, na_action=None, **kwargs):
         """Apply a function to a Dataframe element-wise.
 

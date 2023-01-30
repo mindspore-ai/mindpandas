@@ -2332,6 +2332,12 @@ class QueryCompiler:
         parts = frame.partitions
         return parts
 
+    @classmethod
+    def memory_usage(cls, input_dataframe, index=True, deep=False):
+        """Compiling memory usage"""
+        map_func = ff.memory_usage(index=index, deep=deep)
+        return mpd.Series(input_dataframe.backend_frame.reduce(map_func, axis=0))
+
 
 def get_groupby_reduce_functions(groupby_method_name, by_names, **kwargs):
     """

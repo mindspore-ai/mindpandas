@@ -296,3 +296,7 @@ class FunctionFactory:
     @classmethod
     def mask_iloc(cls):
         return cls.ff_.MaskILoc()
+
+    @classmethod
+    def memory_usage(cls, index=True, deep=False):
+        return cls.ff_.MemoryUsage(index=index, deep=deep)

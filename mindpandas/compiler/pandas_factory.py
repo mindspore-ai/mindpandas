@@ -1072,3 +1072,14 @@ class MaskILoc:
         if is_series and len(output_shape) > 1 and output_shape[1] == 1:
             output = output.squeeze("columns")
         return output
+
+
+class MemoryUsage:
+    """Return the memory usage of each column in bytes"""
+
+    def __init__(self, index=True, deep=False):
+        self.index = index
+        self.deep = deep
+
+    def __call__(self, dataframe):
+        return pandas.DataFrame.memory_usage(dataframe, index=self.index, deep=self.deep)

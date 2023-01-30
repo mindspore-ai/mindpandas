@@ -912,6 +912,16 @@ class Series:
     _comp_op_name_mapping = {'eq': '__eq__', 'le': '__le__', 'lt': '__lt__',
                              'ge': '__ge__', 'gt': '__gt__', 'ne': '__ne__'}
 
+    def memory_usage(self, index=True, deep=False):
+        """
+        Return the memory usage of each column in bytes.
+        """
+        if index:
+            result = self._qc.memory_usage(self, index=False, deep=deep)
+            index_value = self.index.memory_usage(deep=deep)
+            return (result.sum() + index_value).item()
+        return (self._qc.memory_usage(self, index=index, deep=deep).sum()).item()
+
     def __getattribute__(self, item):
         """Getattribute for series."""
         ## handling the edge case when the input is empty
