@@ -465,159 +465,92 @@ class Series:
         :param axis: 0 or index (only index axis is supported)
         :return: Series of Boolean type of the same shape as the input
         """
-        comparator_list = ['eq', 'le', 'lt', 'ge', 'gt', 'ne', 'equals']
-        if axis is None:
-            axis = 0
+        if func in {'__eq__', '__le__', '__lt__', '__ge__', '__gt__', '__ne__'}:
+            if isinstance(other, (Series, pandas.Series)) and self.shape != other.shape:
+                raise ValueError("Can only compare identically-labeled Series objects")
+            if isinstance(other, (list, np.ndarray)) and len(self) != len(other):
+                raise ValueError(f"('Lengths must match to compare', ({len(self)},), ({len(other)},))")
+            func = func.strip('_')
+        elif func in {'eq', 'le', 'lt', 'ge', 'gt', 'ne'}:
+            if isinstance(other, (list, np.ndarray)) and len(self) != len(other):
+                raise ValueError("Lengths must be equal")
+        elif func not in {'equals'}:
+            raise NotImplementedError(f"{func} operation is not supported yet")
+
         axis = self._get_axis_number(axis)
-        if axis != 0:
-            raise ValueError(f"No axis named {axis} for object type Series")
+
         if level is not None or fill_value is not None:
-            if isinstance(other, mpd.Series):
-                other_series = other.to_pandas()
-            else:
-                other_series = other
-            return self._qc.default_to_pandas(df=self,
-                                              df_method=func,
-                                              other=other_series,
-                                              level=level,
-                                              fill_value=fill_value,
-                                              axis=0,
-                                              force_series=True)
-        if func in comparator_list:
-            # check other is pandas.Series or not
-            if isinstance(other, pandas.Series):
-                other = Series(other)
-            if isinstance(other, (list, np.ndarray, pandas.Series, tuple)) and not \
-               pandas.Index(np.arange(0, len(self))).equals(self.index):
+            return self._qc.default_to_pandas(df=self, df_method=func, other=other, level=level, fill_value=fill_value,
+                                              axis=0, force_series=True)
+        if is_scalar(other):
+            return self._qc.series_comp_op(self, func, other, True, level, fill_value, axis)
+
+        if isinstance(other, (list, np.ndarray, tuple)):
+            if not pandas.Index(np.arange(0, len(self))).equals(self.index):
                 self.reset_index(drop=True, inplace=True)
-            if isinstance(other, (list, np.ndarray, tuple)):
-                other_series = Series(other, index=self.index[:len(self)])
-                return self._qc.series_comp_op(self,
-                                               func,
-                                               other_series,
-                                               False,
-                                               level,
-                                               fill_value,
-                                               axis,
-                                               sort=False)
-            if isinstance(other, Series):
-                result = self._qc.series_comp_op(self,
-                                                 func,
-                                                 other,
-                                                 False,
-                                                 level,
-                                                 fill_value,
-                                                 axis,
-                                                 sort=False)
-                if 'mixed' in result.index.inferred_type or self.index.equals(other.index):
-                    return result
-                return result.sort_index()
-            if is_scalar(other):
-                return self._qc.series_comp_op(self,
-                                               func,
-                                               other,
-                                               True,
-                                               level,
-                                               fill_value,
-                                               axis,
-                                               sort=False)
-            # handle special case of eq that other is a dict or set
-            if isinstance(other, (dict, set)) and func in ('eq', 'ne'):
-                return self._qc.default_to_pandas(df=self,
-                                                  df_method=func,
-                                                  other=other,
-                                                  level=level,
-                                                  fill_value=fill_value,
-                                                  axis=0,
-                                                  force_series=True)
-            raise TypeError(
-                f"Argument other of type {type(other)} is not supported.")
-        raise ValueError(f"Argument func {func} is not supported.")
+            other_series = Series(other, index=self.index[:len(self)])
+            return self._qc.series_comp_op(self, func, other_series, False, level, fill_value, axis)
+
+        if isinstance(other, pandas.Series):
+            other = Series(other)
+
+        if isinstance(other, Series):
+            result = self._qc.series_comp_op(self, func, other, False, level, fill_value, axis)
+            if 'mixed' in result.index.inferred_type or self.index.equals(other.index):
+                return result
+            return result.sort_index()
+
+        # other situations
+        return self._qc.default_to_pandas(df=self, df_method=func, other=other, level=level, fill_value=fill_value,
+                                          axis=0, force_series=True)
 
     def eq(self, other, level=None, fill_value=None, axis=0):
         """Elementwise equality comparison for series."""
-        if isinstance(other, (list, np.ndarray)) and len(self) != len(other):
-            raise ValueError("Lengths must be equal")
         return self._comp_op('eq', other, level, fill_value, axis)
 
     def __eq__(self, other):
         """Elementwise equality comparison for series."""
-        if isinstance(other, (Series, pandas.Series)) and self.shape != other.shape:
-            raise ValueError("Can only compare identically-labeled Series objects")
-        if isinstance(other, (list, np.ndarray)) and len(self) != len(other):
-            raise ValueError(f"('Lengths must match to compare', ({len(self)},), ({len(other)},))")
-        return self._comp_op('eq', other, None, None, 0)
-        # return self.apply(operator.eq, (other,))
+        return self._comp_op('__eq__', other, None, None, 0)
 
     def le(self, other, level=None, fill_value=None, axis=0):
         """Elementwise <= comparison for series."""
-        if isinstance(other, (list, np.ndarray)) and len(self) != len(other):
-            raise ValueError("Lengths must be equal")
         return self._comp_op('le', other, level, fill_value, axis)
 
     def __le__(self, other):
         """Elementwise <= comparison for series."""
-        if isinstance(other, (Series, pandas.Series)) and self.shape != other.shape:
-            raise ValueError("Can only compare identically-labeled Series objects")
-        if isinstance(other, (list, np.ndarray)) and len(self) != len(other):
-            raise ValueError(f"('Lengths must match to compare', ({len(self)},), ({len(other)},))")
-        return self._comp_op('le', other, None, None, 0)
+        return self._comp_op('__le__', other, None, None, 0)
 
     def lt(self, other, level=None, fill_value=None, axis=0):
         """Elementwise < comparison for series."""
-        if isinstance(other, (list, np.ndarray)) and len(self) != len(other):
-            raise ValueError("Lengths must be equal")
         return self._comp_op('lt', other, level, fill_value, axis)
 
     def __lt__(self, other):
         """Elementwise < comparison for series."""
-        if isinstance(other, (Series, pandas.Series)) and self.shape != other.shape:
-            raise ValueError("Can only compare identically-labeled Series objects")
-        if isinstance(other, (list, np.ndarray)) and len(self) != len(other):
-            raise ValueError(f"('Lengths must match to compare', ({len(self)},), ({len(other)},))")
-        return self._comp_op('lt', other, None, None, 0)
+        return self._comp_op('__lt__', other, None, None, 0)
 
     def ge(self, other, level=None, fill_value=None, axis=0):
         """Elementwise >= comparison for series."""
-        if isinstance(other, (list, np.ndarray)) and len(self) != len(other):
-            raise ValueError("Lengths must be equal")
         return self._comp_op('ge', other, level, fill_value, axis)
 
     def __ge__(self, other):
         """Elementwise >= comparison for series."""
-        if isinstance(other, (Series, pandas.Series)) and self.shape != other.shape:
-            raise ValueError("Can only compare identically-labeled Series objects")
-        if isinstance(other, (list, np.ndarray)) and len(self) != len(other):
-            raise ValueError(f"('Lengths must match to compare', ({len(self)},), ({len(other)},))")
-        return self._comp_op('ge', other, None, None, 0)
+        return self._comp_op('__ge__', other, None, None, 0)
 
     def gt(self, other, level=None, fill_value=None, axis=0):
         """Elementwise > comparison for series."""
-        if isinstance(other, (list, np.ndarray)) and len(self) != len(other):
-            raise ValueError("Lengths must be equal")
         return self._comp_op('gt', other, level, fill_value, axis)
 
     def __gt__(self, other):
-        "Elementwise > comparison for series."
-        if isinstance(other, (Series, pandas.Series)) and self.shape != other.shape:
-            raise ValueError("Can only compare identically-labeled Series objects")
-        if isinstance(other, (list, np.ndarray)) and len(self) != len(other):
-            raise ValueError(f"('Lengths must match to compare', ({len(self)},), ({len(other)},))")
-        return self._comp_op('gt', other, None, None, 0)
+        """Elementwise > comparison for series."""
+        return self._comp_op('__gt__', other, None, None, 0)
 
     def ne(self, other, level=None, fill_value=None, axis=0):
         """Elementwise != comparison for series."""
-        if isinstance(other, (list, np.ndarray)) and len(self) != len(other):
-            raise ValueError("Lengths must be equal")
         return self._comp_op('ne', other, level, fill_value, axis)
 
     def __ne__(self, other):
         """Elementwise != comparison for series."""
-        if isinstance(other, (Series, pandas.Series)) and self.shape != other.shape:
-            raise ValueError("Can only compare identically-labeled Series objects")
-        if isinstance(other, (list, np.ndarray)) and len(self) != len(other):
-            raise ValueError(f"('Lengths must match to compare', ({len(self)},), ({len(other)},))")
-        return self._comp_op('ne', other, None, None, 0)
+        return self._comp_op('__ne__', other, None, None, 0)
 
     def equals(self, other):
         """Returns true if the series and other are equal."""
@@ -687,6 +620,11 @@ class Series:
                                                     inplace=inplace,
                                                     force_series=True)
         return reseted_series
+
+    def abs(self):
+        return self._qc.abs(self)
+
+    __abs__ = abs
 
     def fillna(self,
                value=None,

@@ -272,6 +272,7 @@ class EagerFrame(BaseFrame):
     def _index_from_partitions(self, partitions=None):
         if partitions is None:
             partitions = self.partitions
+
         index0 = partitions[0, 0].index
         index = index0
         for part in partitions[1:, 0]:
@@ -454,12 +455,7 @@ class EagerFrame(BaseFrame):
 
     def dtypes_from_partitions(self):
         '''Get data types from partitions.'''
-        dtype0 = self.partitions[0, 0].dtypes
-        if dtype0 is None:  # Series has no dtypes
-            return None
-        dtypes = dtype0
-        for _, part in enumerate(self.partitions[0, 1:]):
-            dtypes = dtypes.append(part.dtypes)
+        dtypes = pandas.concat([part.dtypes for part in self.partitions[0, :]])
         return dtypes
 
     def map(self, map_func, fuse=False, pass_coord=False, repartition=False, **kwargs):

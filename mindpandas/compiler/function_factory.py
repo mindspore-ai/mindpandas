@@ -48,6 +48,10 @@ class FunctionFactory:
         return cls.ff_.GroupbyReduce(method_name, by_names, **kwargs)
 
     @classmethod
+    def abs(cls, **kwargs):
+        return cls.ff_.Abs(**kwargs)
+
+    @classmethod
     def fill_na(cls, **kwargs):
         return cls.ff_.Fillna(**kwargs)
 

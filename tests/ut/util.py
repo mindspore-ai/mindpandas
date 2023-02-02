@@ -698,6 +698,13 @@ class TestUtil:
         ser = module.Series(["a", 1, 2, 3, np.nan])
         return ser
 
+    def create_series_complex(self, module):
+        """
+        Return a Series with complex numbers
+        """
+        ser = module.Series([1 + 4j, 1 - 3j, 2, -4 - 4j, 2j, -3, -4])
+        return ser
+
     def create_two_series(self, module):
         """
         Return two Series that have same index.

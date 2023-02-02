@@ -685,6 +685,12 @@ class QueryCompiler:
         return result
 
     @classmethod
+    def abs(cls, input_dataframe):
+        map_func = ff.abs()
+        frame = input_dataframe.backend_frame.map(map_func)
+        return type(input_dataframe)(frame)
+
+    @classmethod
     def fillna(cls, **kwargs):
         """Compiling fillna"""
         input_dataframe = kwargs.pop("input_dataframe", None)
@@ -1787,9 +1793,9 @@ class QueryCompiler:
     def has_multiindex(cls, input_dataframe, axis=0):
         """Function that is used to determine if dataframe/series has MultiIndex """
         if axis == 0:
-            return isinstance(input_dataframe.backend_frame.index, pandas.MultiIndex)
+            return isinstance(input_dataframe.index, pandas.MultiIndex)
 
-        return isinstance(input_dataframe.backend_frame.columns, pandas.MultiIndex)
+        return isinstance(input_dataframe.columns, pandas.MultiIndex)
 
     @classmethod
     def transpose(cls, df, copy):
@@ -1892,7 +1898,7 @@ class QueryCompiler:
         return type(input_dataframe)(frame)
 
     @classmethod
-    def series_comp_op(cls, input_series, func, other, scalar_other, level=None, fill_value=None, axis=0, sort=False):
+    def series_comp_op(cls, input_series, func, other, scalar_other, level=None, fill_value=None, axis=0):
         """
         Compiling Series comparison operators.
         This function is not called from any external pandas API.

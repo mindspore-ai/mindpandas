@@ -294,6 +294,16 @@ class GroupbyReduce:
         return output
 
 
+class Abs:
+    """Return a Series/DataFrame with absolute numeric value of each element."""
+
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+
+    def __call__(self, dataframe):
+        return dataframe.abs()
+
+
 class Fillna:
     """Fill NA/NaN values using the specified method."""
 

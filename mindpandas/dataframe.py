@@ -216,6 +216,11 @@ class DataFrame:
     def any(self, axis=0, bool_only=None, skipna=True, level=None, **kwargs):
         return self._logical_op("any", axis=axis, bool_only=bool_only, skipna=skipna, level=level, **kwargs)
 
+    def abs(self):
+        return self._qc.abs(self)
+
+    __abs__ = abs
+
     def fillna(self,
                value=None,
                method=None,
@@ -558,9 +563,6 @@ class DataFrame:
         output_dataframe = self._qc.dtypes(input_dataframe=self)
         return output_dataframe
 
-    def dtypes_from_partitions(self):
-        return self.backend_frame.dtypes_from_partitions()
-
     def isin(self, values):
         if isinstance(values, (mpd.DataFrame, mpd.Series)):
             values = values.to_pandas()
@@ -702,134 +704,98 @@ class DataFrame:
         """
         Do the operations like equal, le, lt, etc.
         """
-        if axis is None:
-            axis = 0
+        if func in {'__eq__', '__le__', '__lt__', '__ge__', '__gt__', '__ne__'}:
+            if isinstance(other, (pandas.DataFrame, mpd.DataFrame)):
+                if self.shape != other.shape or not self.index.equals(other.index):
+                    raise ValueError("ValueError: Can only compare identically-labeled DataFrame objects")
+            func = func.strip('_')
+        elif func not in {'eq', 'le', 'lt', 'ge', 'gt', 'ne', 'equals'}:
+            raise NotImplementedError(f"{func} operation is not supported yet")
+
         axis = self._get_axis_number(axis)
-        if func in ('eq', 'le', 'lt', 'ge', 'gt', 'ne', 'equals'):
-            if isinstance(other, np.ndarray):
-                if len(other.shape) > 1:
-                    other = mpd.DataFrame(other)
-                else:
-                    return self._qc.default_to_pandas(df=self,
-                                                      df_method=func,
-                                                      other=other,
-                                                      axis=axis,
-                                                      level=level)
-                return self._qc.df_comp_op(self, func, other, False, axis, level)
 
-            if isinstance(other, (dict, list, tuple, mpd.Series, pandas.Series)):
-                return self._qc.default_to_pandas(df=self,
-                                                  df_method=func,
-                                                  other=other,
-                                                  axis=axis,
-                                                  level=level)
-            if isinstance(other, pandas.DataFrame):
-                # if the DataFrame is Hierarchical
-                if isinstance(other.index, pandas.core.indexes.multi.MultiIndex):
-                    return self._qc.default_to_pandas(df=self,
-                                                      df_method=func,
-                                                      other=other,
-                                                      axis=axis,
-                                                      level=level)
-                other_df = DataFrame(other)
-                return self._qc.df_comp_op(self, func, other_df, False, axis, level)
-            if isinstance(other, DataFrame):
-                # if the DataFrame is Hierarchical
-                if isinstance(other.index, pandas.core.indexes.multi.MultiIndex):
-                    return self._qc.default_to_pandas(df=self,
-                                                      df_method=func,
-                                                      other=other,
-                                                      axis=axis,
-                                                      level=level)
-                if not self.columns.equals(other.columns):
-                    return self._qc.default_to_pandas(df=self,
-                                                      df_method=func,
-                                                      other=other,
-                                                      axis=axis,
-                                                      level=level)
-                result = self._qc.df_comp_op(self, func, other, False, axis, level)
-                if ((result.columns is not None and 'mixed' in result.index.inferred_type)
-                        or self.index.equals(other.index)):
-                    return result
-                result = DataFrame(result)
-                return result.sort_index()
-            if is_scalar(other):
-                return self._qc.df_comp_op(self, func, other, True, axis, level)
+        if is_scalar(other):
+            return self._qc.df_comp_op(self, func, other, True, axis, level)
 
-            raise TypeError(f"argument other of type {type(other)} is not supported.")
+        if isinstance(other, np.ndarray) and self.shape == other.shape:
+            other = mpd.DataFrame(other)
 
-        raise ValueError(f"argument func {func} is not supported.")
+        if isinstance(other, pandas.DataFrame):
+            other = DataFrame(other)
+
+        if isinstance(other, DataFrame):
+            if (
+                    level is not None
+                    or self._qc.has_multiindex(self, axis)
+                    or self._qc.has_multiindex(other, axis)
+                    or not self.columns.equals(other.columns)
+            ):
+                return self._qc.default_to_pandas(df=self, df_method=func, other=other, axis=axis, level=level)
+
+            result = self._qc.df_comp_op(self, func, other, False, axis, level)
+            if (
+                    (result.columns is not None and 'mixed' in result.index.inferred_type)
+                    or self.index.equals(other.index)
+            ):
+                return result
+
+            result = DataFrame(result)
+            return result.sort_index()
+
+        # other situations
+        return self._qc.default_to_pandas(df=self, df_method=func, other=other, axis=axis, level=level)
 
     def eq(self, other, axis='columns', level=None):
-        result = self._comp_op('eq', other, axis, level)
-        return result
+        return self._comp_op('eq', other, axis, level)
 
     def __eq__(self, other):
-        if isinstance(other, (pandas.DataFrame, mpd.DataFrame)):
-            if self.shape != other.shape or not self.index.equals(other.index):
-                raise ValueError("ValueError: Can only compare identically-labeled DataFrame objects")
-        return self._comp_op('eq', other, "columns", None)
+        return self._comp_op('__eq__', other, "columns", None)
 
     def le(self, other, axis='columns', level=None):
         return self._comp_op('le', other, axis, level)
 
     def __le__(self, other):
-        if isinstance(other, (pandas.DataFrame, mpd.DataFrame)):
-            if self.shape != other.shape or not self.index.equals(other.index):
-                raise ValueError("ValueError: Can only compare identically-labeled DataFrame objects")
-        return self._comp_op('le', other, "columns", None)
+        return self._comp_op('__le__', other, "columns", None)
 
     def lt(self, other, axis='columns', level=None):
         return self._comp_op('lt', other, axis, level)
 
     def __lt__(self, other):
-        if isinstance(other, (pandas.DataFrame, mpd.DataFrame)):
-            if self.shape != other.shape or not self.index.equals(other.index):
-                raise ValueError("ValueError: Can only compare identically-labeled DataFrame objects")
-        return self._comp_op('lt', other, "columns", None)
+        return self._comp_op('__lt__', other, "columns", None)
 
     def ge(self, other, axis='columns', level=None):
         return self._comp_op('ge', other, axis, level)
 
     def __ge__(self, other):
-        if isinstance(other, (pandas.DataFrame, mpd.DataFrame)):
-            if self.shape != other.shape or not self.index.equals(other.index):
-                raise ValueError("ValueError: Can only compare identically-labeled DataFrame objects")
-        return self._comp_op('ge', other, "columns", None)
+        return self._comp_op('__ge__', other, "columns", None)
 
     def gt(self, other, axis='columns', level=None):
         return self._comp_op('gt', other, axis, level)
 
     def __gt__(self, other):
-        if isinstance(other, (pandas.DataFrame, mpd.DataFrame)):
-            if self.shape != other.shape or not self.index.equals(other.index):
-                raise ValueError("ValueError: Can only compare identically-labeled DataFrame objects")
-        return self._comp_op('gt', other, "columns", None)
+        return self._comp_op('__gt__', other, "columns", None)
 
     def ne(self, other, axis='columns', level=None):
         return self._comp_op('ne', other, axis, level)
 
     def __ne__(self, other):
-        if isinstance(other, (pandas.DataFrame, mpd.DataFrame)):
-            if self.shape != other.shape or not self.index.equals(other.index):
-                raise ValueError("ValueError: Can only compare identically-labeled DataFrame objects")
-        return self._comp_op('ne', other, "columns", None)
+        return self._comp_op('__ne__', other, "columns", None)
 
     def equals(self, other):
         """
         Test whether two objects are equal.
         """
         if isinstance(other, (pandas.DataFrame, mpd.DataFrame)):
-            # check Dataframe shapes, colmuns and dtypes in advanced
-            if self.shape != other.shape or not self.columns.equals(other.columns) or not self.dtypes.equals(
-                    other.dtypes):
+            # check Dataframe shapes, columns and dtypes in advanced
+            if (
+                    self.shape != other.shape
+                    or not self.columns.equals(other.columns)
+                    or not self.dtypes.equals(other.dtypes)
+            ):
                 return False
             equal = self._comp_op('equals', other, 0, None).all(axis=None)
         else:
-            return self._qc.default_to_pandas(df=self,
-                                              df_method='equals',
-                                              other=other,
-                                              )
+            return self._qc.default_to_pandas(df=self, df_method='equals', other=other)
 
         # Convert numpy.bool to python bool
         return bool(equal)
