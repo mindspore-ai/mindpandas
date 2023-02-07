@@ -8,6 +8,7 @@
         - **num_shards** (int, 可选) - 指定将数据划分为多少个分片。默认值：1。
         - **dataset_name** (str, 可选) - 数据集的名称。默认值：`dateset` 。
         - **full_batch** (bool, 可选) - 如果为True，则每个分片将获得sender发送的完整数据。否则，每个分片只能获取部分数据。默认值：False。
+        - **max_queue_size** (int, 可选) - 队列中能够缓存的最大元素数量。默认值：10。
 
     异常：
         - **ValueError** - 当 `num_shards` 为无效值时。

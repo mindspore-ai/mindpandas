@@ -48,9 +48,9 @@ class Actor:
 
         Args:
             ref_list (list[ObjectReference]): The object reference in object store.
-            shard_id (int, optional): The shard that obj belongs to. If -1, use internal shard_id. By default the value
+            shard_id (int, optional): The shard that obj belongs to. If -1, use internal shard_id. By default, the value
                 is -1.
-            full_batch (bool, optional): If true, all shards will receive the object. By default the value is False.
+            full_batch (bool, optional): If true, all shards will receive the object. By default, the value is False.
         """
         ref = ref_list[0]
         if full_batch:
@@ -134,15 +134,15 @@ class DataSender(BaseChannel):
 
     Args:
         address (str): The ip address of the node current sender runs on.
-        namespace (str, optional): The namespace that the channel belongs to. By default the value is "default" and the
+        namespace (str, optional): The namespace that the channel belongs to. By default, the value is "default" and the
             sender will be running in namespace "default". DataSender and DataReceiver in different namespaces cannot
             connect to each other.
-        num_shards (int, optional): Specifies how many shards the data will be divided into. By default the value is 1.
-        dataset_name (str, optional): The name of the dataset. By default the value is "dataset".
-        full_batch (bool, optional): If true, each shard will get complete data sent by the sender. Otherwise each shard
-            only gets part of the data. By default the value is False.
-        max_queue_size (int, optional): The maximum number of data that can be cached in the queue. By default the value
-            is 10.
+        num_shards (int, optional): Specifies how many shards the data will be divided into. By default, the value is 1.
+        dataset_name (str, optional): The name of the dataset. By default, the value is "dataset".
+        full_batch (bool, optional): If true, each shard will get complete data sent by the sender.
+            Otherwise, each shard only gets part of the data. By default, the value is False.
+        max_queue_size (int, optional): The maximum number of data that can be cached in the queue.
+            By default, the value is 10.
 
     Raises:
         ValueError: If `num_shards` is an invalid value.
@@ -272,11 +272,11 @@ class DataSender(BaseChannel):
         """Returns the object references that haven't been consumed in the shard specified by `shard_id`.
 
         Args:
-            shard_id (int, optional): The id of the requested shard. By default the value is None and it will return all
-                shards.
+            shard_id (int, optional): The id of the requested shard. By default, the value is None, and it will return
+                all shards.
 
         Returns:
-            List, the queue that stores references of the data that haven't been consumed in the shard.
+            Deque, the deque that stores references of the data that haven't been consumed in the shard.
 
         Examples:
             >>> # sender is an instance object of DataSender
@@ -290,12 +290,12 @@ class DataReceiver(BaseChannel):
 
     Args:
         address (str): The ip address of the node current receiver runs on.
-        namespace (str, optional): The namespace that the channel belongs to. By default the value is "default" and the
+        namespace (str, optional): The namespace that the channel belongs to. By default, the value is "default" and the
             receiver will be running in namespace "default". DataSender and DataReceiver in different namespaces cannot
             connect to each other.
-        shard_id (int, optional): Specifies the shard of data that is received by current receiver. By default the value
-            is 0 and the receiver will get data from the shard with id 0.
-        dataset_name (str, optional): The name of the dataset. By default the value is "dataset".
+        shard_id (int, optional): Specifies the shard of data that is received by current receiver. By default,
+            the value is 0 and the receiver will get data from the shard with id 0.
+        dataset_name (str, optional): The name of the dataset. By default, the value is "dataset".
 
     Note:
         Distributed executor has to be started and a DataSender has to be initialized in advance. To pair with the
