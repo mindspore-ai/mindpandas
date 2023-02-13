@@ -171,6 +171,9 @@ class DataSender(BaseChannel):
             raise ValueError(f"dataset_name has to be a string, got {type(dataset_name)}")
         if not isinstance(full_batch, bool):
             raise ValueError(f"full_batch has to be a boolean value, got {type(full_batch)}")
+        if not isinstance(max_queue_size, int) or num_shards <= 0:
+            raise ValueError(f"max_queue_size has to be a positive integer, "
+                             f"got {max_queue_size} of type {type(max_queue_size)}")
         self._num_shards = num_shards
         self._full_batch = full_batch
         self.max_queue_size = max_queue_size
@@ -178,21 +181,11 @@ class DataSender(BaseChannel):
         super(DataSender, self).__init__(address=address)
 
         try:
-            # The lifetime of a yr named instance is decoupled from the script that created it, which means that the
-            # instance persists even after the script exits. Therefore, user has to manually call terminate() to kill
-            # the instance due the limitation of yr.
-            # In this case, to avoid duplicate instances, we need to check if there is an existing instances with the
-            # same name and namespace and terminate the instance before launching a new one.
-            # Yr plans to add a parameter to control the lifetime of the instance in the future, and this part will be
-            # optimized at that time.
-            old_actor = yr.get_instance(name=dataset_name, namespace=namespace)
-            old_actor.terminate()
-            # terminate() is executed asynchronously, we must ensure the instance has already been terminated before the
-            # next step. The only way to check the state of the instance is to call yr.get_instance(), which throws a
-            # RuntimeError if the instance has been terminated.
-            while yr.get_instance(name=dataset_name, namespace=namespace):
-                time.sleep(1)
+            # Check if the combination of name and namespace is duplicate
+            yr.get_instance(name=dataset_name, namespace=namespace)
+            raise ValueError(f"Channel with dataset_name '{dataset_name}' already exists in namespace '{namespace}'.")
         except RuntimeError:
+            # yr.get_instance raises a RuntimeError if the instance does not exist.
             pass
 
         option = yr.InvokeOptions(name=dataset_name, namespace=namespace)
