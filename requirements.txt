@@ -9,3 +9,4 @@ grpcio==1.41.0
 uvloop==0.16.0
 protobuf==3.19.3
 psutil>=5.7.0
+networkx>=2.8.5

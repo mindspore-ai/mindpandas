@@ -1,0 +1,5 @@
+mindpandas/mindpandas/compiler/lazy/optimizer.py:push_project_under_join
+mindpandas/mindpandas/compiler/lazy/optimizer.py:create_task_chain_optimized_v1
+mindpandas/mindpandas/compiler/lazy/optimizer.py:create_task_chain2
+mindpandas/mindpandas/compiler/lazy/rewrite.py:push_project_under_join
+mindpandas/mindpandas/compiler/lazy/rewrite.py:merge_sel_proj

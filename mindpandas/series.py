@@ -1,4 +1,4 @@
-# Copyright 2021-2022 Huawei Technologies Co., Ltd
+# Copyright 2021-2023 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ from pandas.util._validators import validate_bool_kwarg
 import mindpandas as mpd
 from mindpandas.backend.base_frame import BaseFrame
 from mindpandas.backend.eager.eager_frame import EagerFrame
+from . import internal_config as i_config
 from .backend.base_io import BaseIO
 from .util import is_full_grab_slice, NO_VALUE
 from .iterator import DataFrameIterator
@@ -62,8 +63,16 @@ class Series:
                 self.backend_frame = BaseIO.build_series_backend_frame(
                     data, index, dtype, name, copy)
 
-        from .compiler.query_compiler import QueryCompiler as qc
-        self._qc = qc
+        if i_config.is_lazy_mode():
+            from .compiler.lazy.logicalplan_builder import LogicalPlanBuilder as qc
+            self._qc = qc
+            if data is not None:
+                # Build a leaf node for this DataFrame object
+                self = self._qc.leaf_series(self, self.index)
+
+        else:
+            from .compiler.query_compiler import QueryCompiler as qc
+            self._qc = qc
         if data is None:
             self.backend_frame = BaseFrame.create()
 
@@ -622,7 +631,7 @@ class Series:
         return reseted_series
 
     def abs(self):
-        return self._qc.abs(self)
+        return self._qc.map_op(self, "abs")
 
     __abs__ = abs
 
@@ -677,7 +686,7 @@ class Series:
 
     def isna(self):
         """Returns series indicating whether element is Nan."""
-        output_series = self._qc.isna(input_dataframe=self, is_series=True)
+        output_series = self._qc.map_op(self, "isna", is_series=True)
         return output_series
 
     def isnull(self):
@@ -834,7 +843,7 @@ class Series:
         """Getattribute for series."""
         ## handling the edge case when the input is empty
         attr = super().__getattribute__(item)
-        if callable(attr) and self.empty:
+        if not mpd.is_lazy_mode() and callable(attr) and self.empty:
             if hasattr(pandas.core.generic.NDFrame, item):
                 def default_func(*args, **kwargs):
                     return self._qc.default_to_pandas(self, item, *args, force_series=True, **kwargs)
@@ -862,5 +871,16 @@ class Series:
             values = values.to_pandas()
         if isinstance(values, dict):
             values = list(values.keys())
-        output = self._qc.isin(input_dataframe=self, values=values)
+        output = self._qc.map_op(self, "isin", values=values)
         return output
+
+    @property
+    def node_id(self):
+        return self.backend_frame.node_id
+
+    @node_id.setter
+    def node_id(self, node_id):
+        try:
+            self.backend_frame.node_id = node_id
+        except:
+            raise RuntimeError("can't get node id from backend frame")

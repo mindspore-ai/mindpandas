@@ -1,4 +1,4 @@
-# Copyright 2021-2022 Huawei Technologies Co., Ltd
+# Copyright 2021-2023 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,8 +16,11 @@
 import pandas
 from pandas._libs import lib
 from pandas._typing import StorageOptions
-
-from .compiler.query_compiler import QueryCompiler as qc
+import mindpandas as mpd
+if mpd.is_lazy_mode():
+    from .compiler.lazy.logicalplan_builder import LogicalPlanBuilder as qc
+else:
+    from .compiler.query_compiler import QueryCompiler as qc
 
 
 def read_csv(
@@ -100,7 +103,6 @@ def read_csv(
                   delim_whitespace=delim_whitespace, low_memory=low_memory,
                   memory_map=memory_map, float_precision=float_precision,
                   storage_options=storage_options)
-
     if chunksize or iterator:
         return qc.default_to_pandas_general(pandas.read_csv, filepath_or_buffer, **kwargs)
     return qc.read_csv(filepath_or_buffer, **kwargs)

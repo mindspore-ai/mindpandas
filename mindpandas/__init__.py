@@ -1,4 +1,4 @@
-# Copyright 2021-2022 Huawei Technologies Co., Ltd
+# Copyright 2021-2023 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ Note:
 import os
 import sys
 
+from .command import (explain, explain_detail, run, debug, disable, enable)
 from .config import *
 from .dataframe import (DataFrame)
 from .general import (to_datetime, concat, date_range, pivot_table)

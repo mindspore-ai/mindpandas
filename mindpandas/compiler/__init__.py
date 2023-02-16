@@ -1,4 +1,4 @@
-# Copyright 2021-2022 Huawei Technologies Co., Ltd
+# Copyright 2021-2023 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,9 @@
 # ============================================================================
 
 """__init__ file for compiler"""
+from .lazy.graph import (DirectedGraph)
 from .query_compiler import (QueryCompiler)
+from .lazy.query_plan import (PlanOpMixin)
+from .lazy.logicalplan_builder import (LogicalPlanBuilder)
 
-__all__ = ["QueryCompiler"]
+__all__ = ["QueryCompiler", "DirectedGraph", "LogicalPlanBuilder", "PlanOpMixin"]

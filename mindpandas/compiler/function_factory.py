@@ -1,4 +1,4 @@
-# Copyright 2021-2022 Huawei Technologies Co., Ltd
+# Copyright 2021-2023 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,9 +16,10 @@
 import warnings
 
 import mindpandas.internal_config as i_config
+import mindpandas.compiler.lazy.function_factory as ff
 
 
-class FunctionFactory:
+class FunctionFactory(ff.FunctionFactoryLazy):
     """ Mindpandas Function Factory Class"""
     ff_: None
     if i_config.functions == "pandas":
@@ -195,8 +196,8 @@ class FunctionFactory:
         return cls.ff_.Min(axis=axis, skipna=skipna, level=level, numeric_only=numeric_only, **kwargs)
 
     @classmethod
-    def math_op(cls, opr, axis='columns', level=None, fill_value=None):
-        return cls.ff_.MathOp(opr=opr, axis=axis, level=level, fill_value=fill_value)
+    def math_op(cls, op, axis='columns', level=None, fill_value=None):
+        return cls.ff_.MathOp(opr=op, axis=axis, level=level, fill_value=fill_value)
 
     @classmethod
     def insert(cls, **kwargs):

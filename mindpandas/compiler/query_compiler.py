@@ -1,4 +1,4 @@
-# Copyright 2021-2022 Huawei Technologies Co., Ltd
+# Copyright 2021-2023 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -500,6 +500,13 @@ class QueryCompiler:
         return result
 
     @classmethod
+    def map_op(cls, input_dataframe, op_name, **kwargs):
+        map_func = getattr(ff, op_name)(**kwargs)
+        frame = input_dataframe.backend_frame.map(map_func)
+        return type(input_dataframe)(frame)
+
+
+    @classmethod
     def logical_op(cls, input_dataframe, op_name, axis, bool_only, skipna, level, **kwargs):
         """Compiling logical operation"""
         func = getattr(ff, op_name)(axis=axis, bool_only=bool_only, skipna=skipna, level=level, **kwargs)
@@ -685,15 +692,9 @@ class QueryCompiler:
         return result
 
     @classmethod
-    def abs(cls, input_dataframe):
-        map_func = ff.abs()
-        frame = input_dataframe.backend_frame.map(map_func)
-        return type(input_dataframe)(frame)
-
-    @classmethod
     def fillna(cls, **kwargs):
         """Compiling fillna"""
-        input_dataframe = kwargs.pop("input_dataframe", None)
+        input_dataframe = kwargs.pop('input_dataframe', None)
         squeeze_self = kwargs.get("squeeze_self", False)
         axis = kwargs.get("axis", 0)
         value = kwargs.pop("value")
@@ -746,18 +747,6 @@ class QueryCompiler:
         return mpd.DataFrame(data=frame)
 
     @classmethod
-    def isna(cls, **kwargs):
-        """Compiling isna"""
-        input_dataframe = kwargs.pop("input_dataframe", None)
-        is_series = kwargs.pop("is_series", False)
-        func = ff.isna(**kwargs)
-        frame = input_dataframe.backend_frame.map(func)
-        if is_series:
-            return mpd.Series(data=frame)
-
-        return mpd.DataFrame(data=frame)
-
-    @classmethod
     def dtypes(cls, **kwargs):
         """Compiling dtypes"""
         input_dataframe = kwargs.pop("input_dataframe", None)
@@ -769,13 +758,6 @@ class QueryCompiler:
             return result
 
         return result[0]
-
-    @classmethod
-    def isin(cls, input_dataframe, **kwargs):
-        """Compiling isin"""
-        func = ff.isin(**kwargs)
-        frame = input_dataframe.backend_frame.map(func)
-        return type(input_dataframe)(data=frame)
 
     @classmethod
     def dropna(cls, input_dataframe, axis, how, thresh, subset, inplace):
@@ -1795,13 +1777,6 @@ class QueryCompiler:
             return mpd.Series(squeezed_results)
 
         return input_dataframe
-
-    @classmethod
-    def applymap(cls, df, func, na_action, **kwargs):
-        """Compiling applymap"""
-        map_func = ff.applymap(func=func, na_action=na_action, **kwargs)
-        frame = df.backend_frame.map(map_func)
-        return mpd.DataFrame(frame)
 
     @classmethod
     def has_multiindex(cls, input_dataframe, axis=0):

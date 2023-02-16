@@ -1,4 +1,4 @@
-# Copyright 2022 Huawei Technologies Co., Ltd
+# Copyright 2021-2023 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ from pandas.core.dtypes.cast import (
     maybe_downcast_to_dtype,
 )
 import mindpandas as mpd
+from mindpandas.compiler.lazy.pandas_factory import task_chain
 
 
 class SumCount:
@@ -33,12 +34,16 @@ class SumCount:
         self.level = level
         self.numeric_only = numeric_only
         self.kwargs = kwargs
+        if self.axis == 0:
+            self.count_numeric_only = numeric_only
+        else:
+            self.count_numeric_only = True
 
     def __call__(self, dataframe):
         result = pandas.DataFrame(
             {
                 "sum": dataframe.sum(axis=self.axis, skipna=self.skipna, numeric_only=self.numeric_only),
-                "count": dataframe.count(axis=self.axis, numeric_only=self.numeric_only),
+                "count": dataframe.count(axis=self.axis, numeric_only=self.count_numeric_only),
             }
         )
         if '__unsqueeze_series__' in result.index:
@@ -64,6 +69,7 @@ def dtypes():
 
 def dtypes_post():
     """Calculate and return the dtypes in the DataFrame."""
+
     def out_fn(dataframe):
         out_df = pandas.DataFrame()
         ls_len = None
@@ -81,6 +87,7 @@ def dtypes_post():
             out_df[col] = pandas.Series(pandas.concat(ser_ls))
 
         return out_df.dtypes
+
     return lambda dataframe: dataframe[0] if isinstance(dataframe, list) else out_fn(dataframe)
 
     # def out_fn(df):
@@ -141,6 +148,9 @@ class ReduceMean:
         self.kwargs = kwargs
 
     def __call__(self, dataframe):
+        # drop non-numeric values in the result
+        dataframe = dataframe.dropna(axis=1)
+
         if self.axis:
             sum_val = dataframe["sum"]
             count_val = dataframe["count"]
@@ -155,7 +165,10 @@ class ReduceMean:
         if 0 in count_val.values or any(np.isnan(v) for v in count_val.values) or sum_val.empty or count_val.empty:
             raise TypeError("unsupported operand type(s)")
 
-        return sum_val / count_val
+        res = sum_val / count_val
+        # Attempt to infer better dtypes for object columns
+        res = res.infer_objects()
+        return res
 
 
 class RollingMap:
@@ -184,7 +197,7 @@ class GroupbyMap:
         self.kwargs = kwargs
 
     def __call__(self, dataframe, group_by):
-        sort = self.groupby_kwargs['sort']   # need sort
+        sort = self.groupby_kwargs['sort']  # need sort
         observed = self.groupby_kwargs['observed']
         dropna = self.groupby_kwargs['dropna']
         axis = self.groupby_kwargs['axis']
@@ -193,7 +206,7 @@ class GroupbyMap:
         if observed:
             sort = False
 
-        if level is not None:   # by is None
+        if level is not None:  # by is None
             result = getattr(dataframe.groupby(level=level,
                                                axis=axis,
                                                sort=sort,
@@ -203,7 +216,8 @@ class GroupbyMap:
 
         if axis == 0:
             if isinstance(group_by, pandas.DataFrame):
-                dataframe = dataframe.drop(columns=group_by.columns, errors='ignore')  # drop group_by
+                dataframe = dataframe.drop(
+                    columns=group_by.columns, errors='ignore')  # drop group_by
 
                 by_cols = list(group_by.columns)
                 if len(by_cols) == 1:
@@ -218,15 +232,17 @@ class GroupbyMap:
                     # drop index if dataframe has index
                     dataframe = dataframe.reset_index(drop=True)
                     # Add the by parts back to df
-                    by_columns = group_by[[b for b in by_cols if b not in dataframe]]
+                    by_columns = group_by[[
+                        b for b in by_cols if b not in dataframe]]
                     # reset by index to align with the dataframe index
                     by_columns = by_columns.reset_index(drop=True)
                     dataframe = pandas.concat(
                         [dataframe] + [by_columns],
                         axis=1)
-                    group_by = list(group_by.columns)   # change by to labels
+                    group_by = list(group_by.columns)  # change by to labels
             elif isinstance(group_by, (pandas.Series, mpd.Series)):
-                dataframe = dataframe.drop(columns=group_by.columns, errors='ignore')  # drop group_by
+                dataframe = dataframe.drop(
+                    columns=group_by.columns, errors='ignore')  # drop group_by
                 # Since Series can only used for mapping,
                 # we convert it to a list so we can groupby by labels / index levels
                 # NOTE: to_list() consume times, need to optimize later
@@ -239,7 +255,7 @@ class GroupbyMap:
         else:
             group_by = [x for y in group_by.values.tolist() for x in y]
         result = getattr(dataframe.groupby(group_by, axis=axis, sort=sort, dropna=dropna),
-                         self.method_name)(**self.kwargs)   # as_index handle in other place
+                         self.method_name)(**self.kwargs)  # as_index handle in other place
         return pandas.DataFrame(result)
 
 
@@ -276,8 +292,7 @@ class GroupbyReduce:
         output = None
         if len(output_index_names) == 1:
             output = pandas.DataFrame(output_df)
-            output.index.name = self.by_names[0] if isinstance(
-                self.by_names, list) else self.by_names   # add index name
+            output.index.name = self.by_names[0] if isinstance(self.by_names, list) else self.by_names  # add index name
         else:
             # convert tuple-type index into multi-index
             if isinstance(output_df.index, pandas.Index) and isinstance(output_df.index[0], tuple):
@@ -320,8 +335,7 @@ class Fillna:
         if self.squeeze_self:
             return dataframe.squeeze(axis=1).fillna(value=self.value, **self.kwargs)
         if self.is_series and not self.fill_with_primitive:
-            return dataframe.fillna(value=self.value.to_frame(name='__unsqueeze_series__'),
-                                    **self.kwargs)
+            return dataframe.fillna(value=self.value.to_frame(name='__unsqueeze_series__'), **self.kwargs)
         return dataframe.fillna(value=self.value, **self.kwargs)
 
 
@@ -335,6 +349,8 @@ class Sum:
         self.kwargs = kwargs
 
     def __call__(self, dataframe):
+        if len(dataframe.index) == 1 and self.axis == 0:
+            return dataframe
         result = pandas.DataFrame(
             {
                 "sum": dataframe.sum(axis=self.axis, skipna=self.skipna,
@@ -471,8 +487,7 @@ class CumSum:
         self.kwargs = kwargs
 
     def __call__(self, dataframe):
-        return pandas.DataFrame.cumsum(dataframe, axis=self.axis, skipna=self.skipna,
-                                       *self.args, **self.kwargs)
+        return pandas.DataFrame.cumsum(dataframe, axis=self.axis, skipna=self.skipna, *self.args, **self.kwargs)
 
 
 class All:
@@ -574,8 +589,7 @@ class MathOp:
             self.func = pandas.DataFrame.pow
 
     def __call__(self, dataframe, other):
-        return self.func(dataframe, other, axis=self.axis,
-                         level=self.level, fill_value=self.fill_value)
+        return self.func(dataframe, other, axis=self.axis, level=self.level, fill_value=self.fill_value)
 
 
 class SeriesComparison:
@@ -704,7 +718,8 @@ class Combine:
             else:
                 updated_dtype = find_common_type([this_dtype, other_dtype])
                 ms_series = ms_series.astype(updated_dtype, copy=False)
-                ms_other_series = ms_other_series.astype(updated_dtype, copy=False)
+                ms_other_series = ms_other_series.astype(
+                    updated_dtype, copy=False)
 
             arr = self.func(ms_series, ms_other_series)
 
@@ -722,14 +737,13 @@ class Explode:
 
     Custom explode call based on Pandas API's explode.
     """
+
     def __init__(self, column, ignore_index=False):
         self.column = column
         self.ignore_index = ignore_index
 
     def __call__(self, dataframe):
-        return pandas.DataFrame.explode(dataframe,
-                                        column=self.column,
-                                        ignore_index=self.ignore_index)
+        return pandas.DataFrame.explode(dataframe, column=self.column, ignore_index=self.ignore_index)
 
 
 class CumMin:
@@ -742,8 +756,7 @@ class CumMin:
         self.kwargs = kwargs
 
     def __call__(self, dataframe):
-        return pandas.DataFrame.cummin(dataframe, axis=self.axis, skipna=self.skipna,
-                                       *self.args, **self.kwargs)
+        return pandas.DataFrame.cummin(dataframe, axis=self.axis, skipna=self.skipna, *self.args, **self.kwargs)
 
 
 class CumMax:
@@ -756,8 +769,7 @@ class CumMax:
         self.kwargs = kwargs
 
     def __call__(self, dataframe):
-        return pandas.DataFrame.cummax(dataframe, axis=self.axis, skipna=self.skipna,
-                                       *self.args, **self.kwargs)
+        return pandas.DataFrame.cummax(dataframe, axis=self.axis, skipna=self.skipna, *self.args, **self.kwargs)
 
 
 class CumProd:
@@ -770,8 +782,7 @@ class CumProd:
         self.kwargs = kwargs
 
     def __call__(self, dataframe):
-        return pandas.DataFrame.cumprod(dataframe, axis=self.axis, skipna=self.skipna,
-                                        *self.args, **self.kwargs)
+        return pandas.DataFrame.cumprod(dataframe, axis=self.axis, skipna=self.skipna, *self.args, **self.kwargs)
 
 
 class Apply:
@@ -785,8 +796,7 @@ class Apply:
 
     def __call__(self, dataframe):
         if self.apply_to_series:
-            return dataframe.squeeze(axis=1).apply(self.func, convert_dtype=self.convert_dtype,
-                                                   **self.kwargs)
+            return dataframe.squeeze(axis=1).apply(self.func, convert_dtype=self.convert_dtype, **self.kwargs)
         return dataframe.apply(self.func, **self.kwargs)
 
 
@@ -835,8 +845,7 @@ class Reindex:
         self.kwargs = kwargs
 
     def __call__(self, dataframe):
-        dataframe = pandas.DataFrame(dataframe.reindex(
-            labels=self.labels, axis=self.axis, **self.kwargs))
+        dataframe = pandas.DataFrame(dataframe.reindex(labels=self.labels, axis=self.axis, **self.kwargs))
         return dataframe
 
 
@@ -870,8 +879,7 @@ class AsType:
 
     def __call__(self, dataframe):
         if isinstance(self.dtype, dict):
-            return dataframe.astype({k: v for k, v in self.dtype.items() if k in dataframe},
-                                    self.copy, self.errors)
+            return dataframe.astype({k: v for k, v in self.dtype.items() if k in dataframe}, self.copy, self.errors)
         return dataframe.astype(self.dtype, self.copy, self.errors)
 
 
@@ -994,11 +1002,20 @@ class GetItem:
         self.is_scalar = kwargs.get('is_scalar', False)
         self.kwargs = kwargs
 
-    def __call__(self, dataframe, key, other=None):
+    def __call__(self, dataframe, key=None, other=None):
+        if 'column' in self.kwargs:
+            key = [self.kwargs['column']]
+        elif 'columns' in self.kwargs:
+            key = self.kwargs['columns']
         if self.is_scalar:
             key = key.squeeze(1)
-        dataframe = dataframe[key]
-        return dataframe
+        if 'column' not in self.kwargs and 'columns' not in self.kwargs:
+            return dataframe[key]
+        cols_ = dataframe.columns.intersection(key)
+        if cols_.size > 0:
+            return dataframe[cols_]
+        data = []
+        return pandas.DataFrame(data)
 
 
 class Invert:

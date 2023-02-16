@@ -1,4 +1,4 @@
-# Copyright 2021-2022 Huawei Technologies Co., Ltd
+# Copyright 2021-2023 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -48,8 +48,17 @@ class DataFrame:
             from .compiler.query_compiler import QueryCompiler as qc
             self.backend_frame = qc.create_backend_frame(data, index=index, columns=columns, dtype=dtype, copy=copy)
 
-        from .compiler.query_compiler import QueryCompiler as qc
-        self._qc = qc
+        if mpd.is_lazy_mode():
+            from .compiler.lazy.logicalplan_builder import LogicalPlanBuilder as qc
+            self._qc = qc
+            if data is not None:
+                # Build a leaf node for this DataFrame object
+                print("********Start to build the leaf dataframe in the logicalplan builder********")
+                self = self._qc.leaf_dataframe(self, self.index, self.columns)
+
+        else:
+            from .compiler.query_compiler import QueryCompiler as qc
+            self._qc = qc
 
     @property
     def index(self):
@@ -139,7 +148,9 @@ class DataFrame:
         if level is not None:
             return self._qc.default_to_pandas(df=self, df_method=op_name, axis=axis, level=level,
                                               numeric_only=numeric_only, **kwargs)
-
+        if mpd.is_lazy_mode():
+            # TODO check if we need to do something in lazy mode
+            numeric_only = None
         # According to Pandas(1.3.5) implementation:
         # If numeric_only is True, non-numeric columns or rows are dropped before calculation.
         # If numeric_only is False, attempt to use everything, raise a TypeError if the element convert failed.
@@ -217,7 +228,7 @@ class DataFrame:
         return self._logical_op("any", axis=axis, bool_only=bool_only, skipna=skipna, level=level, **kwargs)
 
     def abs(self):
-        return self._qc.abs(self)
+        return self._qc.map_op(self, "abs")
 
     __abs__ = abs
 
@@ -269,8 +280,11 @@ class DataFrame:
         )
 
         if inplace:
-            self.backend_frame = output_dataframe.backend_frame
-            return None
+            if mpd.is_lazy_mode():
+                warnings.warn("Lazy mode does not support inplace df operations. inplace will be changed to False.")
+            else:
+                self.backend_frame = output_dataframe.backend_frame
+                return None
 
         return output_dataframe
 
@@ -555,7 +569,7 @@ class DataFrame:
         return output_dataframe
 
     def isna(self):
-        output_dataframe = self._qc.isna(input_dataframe=self)
+        output_dataframe = self._qc.map_op(self, "isna")
         return output_dataframe
 
     @property
@@ -566,7 +580,7 @@ class DataFrame:
     def isin(self, values):
         if isinstance(values, (mpd.DataFrame, mpd.Series)):
             values = values.to_pandas()
-        output_dataframe = self._qc.isin(input_dataframe=self, values=values)
+        output_dataframe = self._qc.map_op(self, "isin", values=values)
         return output_dataframe
 
     def notna(self):
@@ -1325,7 +1339,7 @@ class DataFrame:
             raise ValueError(f"na_action must be 'ignore' or None, Got {na_action}")
         if not callable(func):
             raise TypeError(f"the first argument must be callable")
-        return self._qc.applymap(self, func, na_action, **kwargs)
+        return self._qc.map_op(self, "applymap", func=func, na_action=na_action, **kwargs)
 
     def __getattr__(self, item: str):
         return self._qc.getitem_column(self, item)
@@ -1335,11 +1349,13 @@ class DataFrame:
         if isinstance(key, slice) or (isinstance(key, str) and key not in self.columns):
             indexer = convert_to_index_sliceable(pandas.DataFrame(index=self.index), key)
         if indexer is not None:
+            if mpd.is_lazy_mode():
+                raise NotImplementedError(" hasn't been implemented yet")
             if is_full_grab_slice(indexer, sequence_len=len(self)):
                 return self.copy()
             return self.iloc[indexer]
         try:
-            if key in self.columns:
+            if key in self.columns or mpd.is_lazy_mode():
                 return self._qc.getitem_column(self, key)
         except (KeyError, ValueError, TypeError):
             pass
@@ -1642,7 +1658,7 @@ class DataFrame:
     def __getattribute__(self, item):
         ## handling the edge case when the input is empty
         attr = super().__getattribute__(item)
-        if callable(attr) and self.empty and hasattr(pandas.core.generic.NDFrame, item):
+        if not mpd.is_lazy_mode() and callable(attr) and self.empty and hasattr(pandas.core.generic.NDFrame, item):
             def default_func(*args, **kwargs):
                 return self._qc.default_to_pandas(self, item, *args, **kwargs)
 
@@ -1651,3 +1667,14 @@ class DataFrame:
 
     def remote_to_numpy(self):
         return self._qc.remote_to_numpy(self)
+
+    @property
+    def node_id(self):
+        return self.backend_frame.node_id
+
+    @node_id.setter
+    def node_id(self, node_id):
+        try:
+            self.backend_frame.node_id = node_id
+        except:
+            raise RuntimeError("can't get node id from backend frame")

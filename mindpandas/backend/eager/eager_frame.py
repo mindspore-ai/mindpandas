@@ -1,4 +1,4 @@
-# Copyright 2021-2022 Huawei Technologies Co., Ltd
+# Copyright 2021-2023 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -55,6 +55,7 @@ class EagerFrame(BaseFrame):
         ----------
         partitions: numpy 2D array
         """
+        super(EagerFrame, self).__init__()
         if i_config.get_adaptive_concurrency() and partitions is not None:
             if isinstance(partitions[0][0], DSPartition):
                 self.ops = mp_ops
@@ -468,6 +469,8 @@ class EagerFrame(BaseFrame):
             output_partitions = frame.ops.map(frame.partitions, map_func, fuse=fuse, pass_coord=pass_coord, **kwargs)
         else:
             output_partitions = frame.ops.map(frame.partitions, map_func, pass_coord, **kwargs)
+        #if mpd.is_lazy_mode():
+            #output_partitions = self.ops.remove_empty_partitions(output_partitions)
         return EagerFrame(output_partitions)
 
     def injective_map(self, cond, other, func, is_scalar=False, need_repartition=False):

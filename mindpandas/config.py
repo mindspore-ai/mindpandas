@@ -1,4 +1,4 @@
-# Copyright 2021-2022 Huawei Technologies Co., Ltd
+# Copyright 2021-2023 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,8 @@ import mindpandas.internal_config as i_config
 
 __all__ = ['set_concurrency_mode', 'get_concurrency_mode', 'set_partition_shape', 'get_partition_shape',
            'set_benchmark_mode', 'get_benchmark_mode',
-           'set_adaptive_concurrency', 'get_adaptive_concurrency', 'set_min_block_size', 'get_min_block_size']
+           'set_adaptive_concurrency', 'get_adaptive_concurrency', 'set_min_block_size', 'get_min_block_size',
+           'set_lazy_mode', 'is_lazy_mode', 'get_process_mode']
 
 
 def set_concurrency_mode(mode, **kwargs):
@@ -282,3 +283,20 @@ def get_adaptive_partition_shape(mode):
     if mode not in support_mode:
         raise ValueError(f"Mode {mode} is not supported.")
     return i_config.get_adaptive_partition_shape(mode)
+
+
+def is_lazy_mode():
+    return i_config.is_lazy_mode()
+
+
+def set_lazy_mode(flag):
+    i_config.set_lazy_mode(flag)
+
+def get_process_mode():
+    """
+    Get string flag to indicate the lazy process mode.
+
+    Returns:
+       string, 'batch' or 'stream'. Only 'batch' is supported now.
+    """
+    i_config.get_process_mode()

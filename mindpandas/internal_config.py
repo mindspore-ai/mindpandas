@@ -1,4 +1,4 @@
-# Copyright 2022 Huawei Technologies Co., Ltd
+# Copyright 2022-2023 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,6 +27,8 @@ multiprocess_shape = (16, 16)
 num_op_actors = 16
 use_shuffle_actor = True
 functions = 'pandas'
+
+_process_mode = "batch"
 
 
 def set_concurrency_mode(mode):
@@ -163,3 +165,41 @@ def get_adaptive_partition_shape(mode):
         return multiprocess_shape
     global multithread_shape
     return multithread_shape
+
+
+def is_lazy_mode():
+    """
+    Get boolean flag to indicate whether system is in lazy mode.
+
+    Returns:
+       boolean, True in lazy mode, False if in eager mode
+    """
+    global _execution_mode
+    if _execution_mode != "eager":
+        return True
+    return False
+
+
+def set_lazy_mode(flag):
+    """
+    Get boolean flag to indicate whether system is in lazy mode.
+
+    Returns:
+       boolean, True in lazy mode, False if in eager mode
+    """
+    global _execution_mode
+    if flag:
+        _execution_mode = "lazy"
+    else:
+        _execution_mode = "eager"
+
+
+def get_process_mode():
+    """
+    Get string flag to indicate the lazy process mode.
+
+    Returns:
+       string, 'batch' or 'stream'. Only 'batch' is supported now.
+    """
+    global _process_mode
+    return _process_mode

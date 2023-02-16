@@ -14,6 +14,7 @@
 "mindpandas/mindpandas/backend/eager/yr/yr_remote_functions.py"                        "len-as-condition"
 "mindpandas/mindpandas/series.py"                                                      "String statement has no effect"
 "mindpandas/mindpandas/series.py"                                                      "Access to a protected member _get_axis_number of a client class"
+"mindpandas/mindpandas/series.py"                                                      "Invalid assignment to self in method"
 "mindpandas/mindpandas/util.py"                                                        "invalid-name"
 "mindpandas/mindpandas/dataframe.py"                                                   "Access to a protected member _get_axis_number of a client class"
 "mindpandas/mindpandas/dataframe.py"                                                   "Access to a protected member _construct_axes_from_arguments of a client class"
@@ -23,10 +24,15 @@
 "mindpandas/mindpandas/dataframe.py"                                                   "Do not use `len(SEQUENCE)` to determine if a sequence is empty"
 "mindpandas/mindpandas/dataframe.py"                                                   "Keyword argument before variable positional arguments list in the definition of agg function"
 "mindpandas/mindpandas/dataframe.py"                                                   "Unused argument"
+"mindpandas/mindpandas/dataframe.py"                                                   "Invalid assignment to self in method"
 "mindpandas/mindpandas/compiler/query_compiler.py"                                     "protected-access"
 "mindpandas/mindpandas/compiler/query_compiler.py"                                     "Unused argument"
 "mindpandas/mindpandas/channel.py"                                                     "logging-fstring-interpolation"
 "mindpandas/mindpandas/channel.py"                                                     "Do not use `len(SEQUENCE)` to determine if a sequence is empty"
+"mindpandas/mindpandas/compiler/lazy/rewrite.py"                                       "String statement has no effect"
+"mindpandas/mindpandas/compiler/lazy/graph.py"                                         "_init__ method from base class 'DirectedGraph' is not called"
+"mindpandas/mindpandas/compiler/pandas_factory.py"                                     "Unused task_chain imported from mindpandas.compiler.lazy.pandas_factory"
+
 
 # Tests
 "mindpandas/tests"                                                                     "missing-docstring"                                                                                      c
