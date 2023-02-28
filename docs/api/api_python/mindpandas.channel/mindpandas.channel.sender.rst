@@ -1,4 +1,4 @@
-.. py:class:: mindpandas.channel.DataSender(address, namespace='default', num_shards=1, dataset_name='dataset', full_batch=False)
+.. py:class:: mindpandas.channel.DataSender(address, namespace='default', num_shards=1, dataset_name='dataset', full_batch=False, max_queue_size=10)
 
     channel的发送方（输入端），通过channel发送新对象。
 

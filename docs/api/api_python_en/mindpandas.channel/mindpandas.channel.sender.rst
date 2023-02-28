@@ -1,4 +1,4 @@
-.. py:class:: mindpandas.channel.DataSender(address, namespace='default', num_shards=1, dataset_name='dataset', full_batch=False)
+.. py:class:: mindpandas.channel.DataSender(address, namespace='default', num_shards=1, dataset_name='dataset', full_batch=False, max_queue_size=10)
 
     The sender (input side) of the channel. It can be used for sending new object through the channel.
 
@@ -8,7 +8,7 @@
         - **num_shards** (int, optional) - Specifies how many shards the data will be divided into. By default the value is 1.
         - **dataset_name** (str, optional) - The name of the dataset. By default the value is `dataset`.
         - **full_batch** (bool, optional) - If true, each shard will get complete data sent by the sender. Otherwise each shard only gets part of the data. By default the value is False.
-        - **max_queue_size** (str, optional) - The maximum number of data that can be cached in the queue. By default the value is 10.
+        - **max_queue_size** (int, optional) - The maximum number of data that can be cached in the queue. By default the value is 10.
 
     Raises
         - **ValueError** - When `num_shards` is an invalid value.
