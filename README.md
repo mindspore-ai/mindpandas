@@ -40,11 +40,11 @@ For detailed architecture design, please refer to [official website document](ht
 
 The following table lists the environment required for installing, compiling and running MindPandas:
 
-| software |  version   |
-| :------: | :-----: |
-|  Linux-x86_64 |  Ubuntu \>=18.04<br/>Euler \>=2.9 |
-|  Python  | 3.8 |
-|  glibc  |  \>=2.25   |
+| software |             version              |
+| :------: |:--------------------------------:|
+|  Linux-x86_64 | Ubuntu \>=18.04<br/>Euler \>=2.9 |
+|  Python  |             3.8-3.9              |
+|  glibc  |             \>=2.25              |
 
 - Make sure libxml2-utils is installed in your environment.
 - Please refer to [requirements](https://gitee.com/mindspore/mindpandas/blob/master/requirements.txt) for other third party dependencies.

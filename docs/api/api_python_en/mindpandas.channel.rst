@@ -1,6 +1,6 @@
 mindpandas.channel
 ==================
 
-.. include:: mindpandas.channel/mindpandas.channel.sender.rst
+.. include:: mindpandas.channel/mindpandas.channel.DataSender.rst
 
-.. include:: mindpandas.channel/mindpandas.channel.receiver.rst
+.. include:: mindpandas.channel/mindpandas.channel.DataReceiver.rst
