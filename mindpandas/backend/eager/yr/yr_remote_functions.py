@@ -33,13 +33,27 @@ def _remote_apply_func(data, func, *args, **kwargs):
 
 
 @yr.invoke(return_nums=2)
-def _remote_apply_queue(data, func_id_list, **kwargs):
+def _remote_apply_queue(data, func_id_list):
     """Execute all functions in data's function queue."""
     output = data
     for func, args, kwargs in func_id_list:
         output = func(output, *args, **kwargs)
     output_data, output_meta = partition.process_raw_data(output)
     return output_data, output_meta
+
+
+@yr.invoke(return_nums=2)
+def _remote_apply_split(data, func, slice_axis, slice_plan, **kwargs):
+    """Apply function onto data then split the result into n columns."""
+    df = func(data, **kwargs)
+
+    output_data_list, output_meta_list = [], []
+    for s in slice_plan:
+        output = df.iloc[:, s] if slice_axis == 1 else df.iloc[s, :]
+        output_data, output_meta = partition.process_raw_data(output)
+        output_data_list.append(yr.put(output_data))
+        output_meta_list.append(yr.put(output_meta))
+    return output_data_list, output_meta_list
 
 
 @yr.invoke(return_nums=2)

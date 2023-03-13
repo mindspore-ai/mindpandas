@@ -32,11 +32,36 @@ adaptive_filesize_threshold = 18000000  # 18 MB
 adaptive_pandas_df_memusage_threshold = 1000000000  # 1 GB
 
 
-def _get_ops():
+def _determine_concurrency_mode_by_file_size(file_size):
+    """Select concurrency mode based on file size"""
+    if not i_config.get_adaptive_concurrency():
+        return i_config.get_concurrency_mode()
+    if file_size < adaptive_filesize_threshold:
+        eager_backend.set_python_backend()
+        return "multithread"
+    eager_backend.set_yr_backend()
+    return "multiprocess"
+
+
+def _determine_concurrency_mode_by_df_size(pandas_df):
+    """Select concurrency mode based on memory usage of dataframe"""
+    if not i_config.get_adaptive_concurrency():
+        return i_config.get_concurrency_mode()
+    pandas_df_memusage = pandas_df.memory_usage(index=True)
+    if not isinstance(pandas_df_memusage, int):
+        pandas_df_memusage = pandas_df_memusage.sum()
+    if pandas_df_memusage < adaptive_pandas_df_memusage_threshold:
+        eager_backend.set_python_backend()
+        return "multithread"
+    eager_backend.set_yr_backend()
+    return "multiprocess"
+
+
+def _get_ops(mode="default"):
     """Return the corresponding operator according to concurrency_mode"""
-    if i_config.get_concurrency_mode() == "multiprocess":
+    if mode == "multiprocess":
         from mindpandas.backend.eager.multiprocess_operators import MultiprocessOperator as ops
-    elif i_config.get_concurrency_mode() == "multithread":
+    elif mode == "multithread":
         from mindpandas.backend.eager.multithread_operators import MultithreadOperator as ops
     else:
         from mindpandas.backend.eager.partition_operators import SinglethreadOperator as ops
@@ -44,11 +69,14 @@ def _get_ops():
     return ops_
 
 
-def _validate_args(filepath, **kwargs):
-    """Validate arguments for fast_read_csv"""
-    if not (isinstance(filepath, str) and os.path.exists(filepath) and infer_compression(filepath, "infer") is None):
-        return False
+def _get_partition_shape(mode):
+    if i_config.get_adaptive_concurrency():
+        return i_config.get_adaptive_partition_shape(mode)
+    return i_config.get_partition_shape()
 
+
+def _validate_args(**kwargs):
+    """Validate arguments for fast_read_csv"""
     # In fast_read_csv, 'header' can be 'infer' or None
     header = kwargs.get('header', "infer")
     if not (header == 'infer' or header is None):
@@ -125,41 +153,34 @@ def _validate_args(filepath, **kwargs):
 def read_csv(filepath, **kwargs):
     """Read a comma-separated values (csv) file into DataFrame."""
 
-    def default_to_pandas_read_csv(filepath, **kwargs):
+    def default_to_pandas_read_csv():
         df = pandas.read_csv(filepath, **kwargs)
-        partition = eager_backend.get_partition().put(data=df, coord=(0, 0))
-        output_frame = EagerFrame(np.array([[partition]]), index=df.index, columns=df.columns)
-        output_frame = output_frame.repartition(output_shape=output_frame.default_partition_shape,
-                                                mblock_size=i_config.get_min_block_size())
+        output_frame = from_pandas(df)
         return output_frame
 
-    if isinstance(filepath, str):
-        if filepath.startswith(("http://", "https://", "ftp://", "s3://", "gs://", "file://")):
-            return default_to_pandas_read_csv(filepath, **kwargs)
-        filepath = os.path.abspath(filepath)
-        file_size = os.path.getsize(filepath)
-    else:
-        curpos = filepath.tell()
-        file_size = filepath.seek(curpos, os.SEEK_END)
-        filepath.seek(curpos)
-    if mpd.config.get_adaptive_concurrency():
-        if file_size < adaptive_filesize_threshold:
-            eager_backend.set_python_backend()
-        else:
-            eager_backend.set_yr_backend()
+    if (
+            not isinstance(filepath, str)
+            or filepath.startswith(("http://", "https://", "ftp://", "s3://", "gs://", "file://"))
+            or infer_compression(filepath, "infer") is not None
+    ):
+        return default_to_pandas_read_csv()
 
-    if _validate_args(filepath, **kwargs):
+    filepath = os.path.abspath(filepath)
+    file_size = os.path.getsize(filepath)
+
+    mode = _determine_concurrency_mode_by_file_size(file_size)
+    partition_shape = _get_partition_shape(mode)
+    mblock_size = i_config.get_min_block_size()
+
+    if _validate_args(**kwargs):
         try:
-            output_frame = fast_read_csv(filepath,
-                                         header=kwargs.get('header', "infer"),
-                                         file_size=file_size)
-            output_frame = output_frame.repartition(output_shape=output_frame.default_partition_shape,
-                                                    mblock_size=i_config.get_min_block_size())
+            output_frame = fast_read_csv(filepath, file_size=file_size, partition_shape=partition_shape,
+                                         mblock_size=mblock_size, header=kwargs.get('header', "infer"))
             return output_frame
         except Exception as err:
             log.warning("Issue with parallel read csv, defaulting back to pandas read_csv. %s", err)
 
-    output_frame = default_to_pandas_read_csv(filepath, **kwargs)
+    output_frame = default_to_pandas_read_csv()
     return output_frame
 
 
@@ -180,21 +201,9 @@ def from_numpy(input_array, index, columns, dtype, copy):
 
 def from_pandas(pandas_df, container_type=pandas.DataFrame):
     """use pandas.DataFrame to create mindpandas.DataFrame"""
-    if mpd.config.get_adaptive_concurrency():
-        pandas_df_memusage = pandas_df.memory_usage(index=True)
-        if not isinstance(pandas_df_memusage, int):
-            pandas_df_memusage = pandas_df_memusage.sum()
-        if pandas_df_memusage < adaptive_pandas_df_memusage_threshold:
-            from mindpandas.backend.eager.multithread_operators import MultithreadOperator as mt_ops
-            ops = mt_ops
-            partition_shape = mpd.config.get_adaptive_partition_shape('multithread')
-        else:
-            from mindpandas.backend.eager.multiprocess_operators import MultiprocessOperator as mp_ops
-            ops = mp_ops
-            partition_shape = mpd.config.get_adaptive_partition_shape('multiprocess')
-    else:
-        ops = _get_ops()
-        partition_shape = i_config.get_partition_shape()
+    mode = _determine_concurrency_mode_by_df_size(pandas_df)
+    ops = _get_ops(mode)
+    partition_shape = _get_partition_shape(mode)
     num_rows = len(pandas_df)
     num_cols = len(pandas_df.columns) if isinstance(pandas_df, pandas.DataFrame) else 1
     if isinstance(pandas_df, pandas.Series):
@@ -262,21 +271,11 @@ def find_next_newline(offset, f):
     return offset
 
 
-def fast_make_splits(file_path, file_size=None):
+def fast_make_splits(file_path, file_size, num_chunks):
     """
     Make split_points. We create a split between 2 consecutive split_points.
     So if split_points is [-1, 5, 15], we create 2 splits -> [0, 5] and [6, 15]
     """
-    if file_size is None:
-        file_size = os.path.getsize(file_path)
-    if mpd.config.get_adaptive_concurrency():
-        if file_size < adaptive_filesize_threshold:
-            partition_shape = mpd.config.get_adaptive_partition_shape('multithread')
-        else:
-            partition_shape = mpd.config.get_adaptive_partition_shape('multiprocess')
-    else:
-        partition_shape = i_config.get_partition_shape()
-    num_chunks = partition_shape[0]
     chunk_size = max(1, int(file_size / num_chunks))
     offset = chunk_size
     split_points = [0]
@@ -294,14 +293,14 @@ def fast_make_splits(file_path, file_size=None):
     return split_points
 
 
-def fast_read_csv(file_path, header, file_size=None, **kwargs):
+def fast_read_csv(file_path, file_size, partition_shape, mblock_size, header):
     """
     optimized version of read_csv()
     Only works for ASCII CSV files
     For now, supports only 1 parameter - header
     """
 
-    split_points = fast_make_splits(file_path, file_size=file_size)
+    row_split_points = fast_make_splits(file_path, file_size, partition_shape[0])
 
     # read first 3 rows to get column types and header info
     min_number_rows = 3
@@ -309,16 +308,23 @@ def fast_read_csv(file_path, header, file_size=None, **kwargs):
     cols = df_head.columns
     dtypes = df_head.dtypes
 
-    df_meta = pandas.DataFrame(None, columns=["start", "end", "column_names", "column_types", "filepath", "header"])
-    for i in range(len(split_points) - 1):
+    num_rows, num_cols = df_head.shape
+    _, col_slices = _get_ops().get_slicing_plan(num_rows, num_cols, (1, partition_shape[1]), mblock_size)
+
+    row_slices_size = len(row_split_points) - 1
+    meta_partitions = np.ndarray((row_slices_size, 1), dtype=object)
+    for i in range(row_slices_size):
         local_header = None if (i > 0) else header
-        df_meta.loc[i] = [split_points[i], split_points[i + 1], cols, dtypes, file_path, local_header]
+        df = pandas.DataFrame([[row_split_points[i], row_split_points[i + 1], cols, dtypes, file_path, local_header]],
+                              columns=["start", "end", "column_names", "column_types", "filepath", "header"])
+        partition = eager_backend.get_partition().put(data=df, coord=(i, 0))
+        meta_partitions[i, 0] = partition
 
-    meta_partition = eager_backend.get_partition().put(data=df_meta, coord=(0, 0))
-    meta_frame = EagerFrame(np.array([[meta_partition]]), df_meta.index, df_meta.columns)  # single partition
-    meta_frame = meta_frame.repartition(output_shape=(len(df_meta), 1), mblock_size=1)
-
-    frame = meta_frame.map(read_csv_mapfn, **kwargs)
+    meta_frame = EagerFrame(partitions=meta_partitions)
+    if _determine_concurrency_mode_by_file_size(file_size) == "multiprocess":
+        frame = meta_frame.map_split(read_csv_mapfn, slice_axis=1, slice_plan=col_slices)
+    else:
+        frame = meta_frame.map(read_csv_mapfn)
 
     for row_part in frame.partitions:
         if not row_part[0].valid:

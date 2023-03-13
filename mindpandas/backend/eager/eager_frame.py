@@ -530,6 +530,11 @@ class EagerFrame(BaseFrame):
         new_axes_lengths[axis] = self._partition_axes[axis ^ 1]
         return EagerFrame(reduced_partitions, *new_axes, *new_axes_lengths)
 
+    def map_split(self, map_func, slice_axis, slice_plan):
+        """Perform map to each row of the input partitions and split the result into n columns."""
+        output_partitions = self.ops.map_split(self.partitions, map_func, slice_axis, slice_plan)
+        return EagerFrame(output_partitions)
+
     def repartition(self, output_shape, mblock_size):
         '''Repartition the frame according to output_shape.'''
         output_partitions = self.ops.repartition(self.partitions, output_shape, mblock_size)

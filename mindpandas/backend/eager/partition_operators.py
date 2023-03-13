@@ -48,6 +48,10 @@ class SinglethreadOperator:
         return output_partitions
 
     @classmethod
+    def map_split(cls, partitions, map_func, slice_axis, slice_plan):
+        raise NotImplementedError("map_split is not supported in the current concurrent mode")
+
+    @classmethod
     def injective_map(cls, partitions, cond_partitions, other, func, other_is_scalar):
         '''Performs singlethreaded injective mapping.'''
         def injective_map_no_cond(partitions, other, func, is_scalar):

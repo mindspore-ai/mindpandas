@@ -123,6 +123,39 @@ class MultiprocessOperator(SinglethreadOperator):
         return partitions
 
     @classmethod
+    def map_split(cls, partitions, map_func, slice_axis, slice_plan):
+        partitions = cls.apply_func_queue(partitions)
+        func_id = get_scheduler().put(map_func)
+        slice_tasks = {}
+        for part in cls.ready_parts(partitions):
+            future_list_id, meta_data_list_id = get_scheduler().remote(rf()._remote_apply_split, part.data_id, func_id,
+                                                                       slice_axis, slice_plan)
+            slice_tasks[future_list_id] = (part.coord[0], meta_data_list_id)
+
+        if slice_axis == 0:
+            # 1 * n --> m * n
+            output_partitions = np.ndarray((len(slice_plan), partitions.shape[0]), dtype=object)
+        else:
+            # n * 1 --> n * m
+            output_partitions = np.ndarray((partitions.shape[0], len(slice_plan)), dtype=object)
+
+        pending_ids = list(slice_tasks.keys())
+        for fid in cls.wait_ready(pending_ids):
+            idx, meta_data_list_id = slice_tasks[fid]
+            future_list = get_scheduler().get(fid)[0]
+            meta_data_list = get_scheduler().get(meta_data_list_id)[0]
+            if slice_axis == 0:
+                for row, (future_id, meta_data_id) in enumerate(zip(future_list, meta_data_list)):
+                    output_part = Partition.put(data_id=future_id, meta_id=meta_data_id, coord=(row, idx))
+                    output_partitions[output_part.coord] = output_part
+            else:
+                for col, (future_id, meta_data_id) in enumerate(zip(future_list, meta_data_list)):
+                    output_part = Partition.put(data_id=future_id, meta_id=meta_data_id, coord=(idx, col))
+                    output_partitions[output_part.coord] = output_part
+        return output_partitions
+
+
+    @classmethod
     @wait_computations_finished
     def injective_map(cls, partitions, cond_partitions, other, func, other_is_scalar):
         if cond_partitions is not None:
