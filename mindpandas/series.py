@@ -860,5 +860,7 @@ class Series:
         """Whether elements in Series are contained in value."""
         if isinstance(values, (mpd.DataFrame, mpd.Series)):
             values = values.to_pandas()
+        if isinstance(values, dict):
+            values = list(values.keys())
         output = self._qc.isin(input_dataframe=self, values=values)
         return output

@@ -54,8 +54,18 @@ def test_series_isin():
     def create_series_isin(module):
         return module.Series(np.random.randint(1, 6, 100))
 
+    def create_series_str_isin(module):
+        data = ['a', 'b', 'c', 'd', 'e']
+        return module.Series(data)
+
     def test_series_isin_list(ser):
         result = ser.isin([1, 2, 3])
         return result
 
+    def test_series_isin_dict(ser):
+        values = {'a': 'a', 'b': '1', '2': 'c'}
+        result = ser.isin(values)
+        return result
+
     TESTUTIL.compare(test_series_isin_list, create_fn=create_series_isin)
+    TESTUTIL.compare(test_series_isin_dict, create_fn=create_series_str_isin)
