@@ -16,7 +16,6 @@
 Module for performing operations on partitions using Python backend.
 """
 from collections import defaultdict
-import warnings
 import hashlib
 import numpy as np
 import pandas
@@ -291,15 +290,7 @@ class SinglethreadOperator:
              is_series=False,
              func=None):
         '''Mask operation in singlethreaded mode.'''
-        # optimize the case where we select all rows
-        # when we select all rows or columns the partition_index_dict is
-        # {i: slice(None)for i in range(num_rows or num_columns)}
-        if rows_index is not None:
-            warnings.warn("rows_index not used for single- or multi-threaded mask.")
-
-        if columns_index is not None:
-            warnings.warn("columns_index not used for single- or multi-threaded mask.")
-
+        del rows_index, columns_index
         output_partitions = np.array(
             [
                 [

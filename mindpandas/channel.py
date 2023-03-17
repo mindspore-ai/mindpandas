@@ -171,7 +171,7 @@ class DataSender(BaseChannel):
             raise ValueError(f"dataset_name has to be a string, got {type(dataset_name)}")
         if not isinstance(full_batch, bool):
             raise ValueError(f"full_batch has to be a boolean value, got {type(full_batch)}")
-        if not isinstance(max_queue_size, int) or num_shards <= 0:
+        if not isinstance(max_queue_size, int) or max_queue_size <= 0:
             raise ValueError(f"max_queue_size has to be a positive integer, "
                              f"got {max_queue_size} of type {type(max_queue_size)}")
         self._num_shards = num_shards

@@ -1107,58 +1107,50 @@ class DataFrame:
             level=None,
             fill_value=np.nan,
             limit=None,
-            tolerance=None,
+            tolerance=None
     ):
         """
         Conform Series/DataFrame to new index with optional filling logic.
         """
-        if copy is None:
-            copy = True
-            log.warning("The 'copy' argument is set to True by default in mindpandas.Dataframe.reindex.")
-        if copy is not True:
-            raise NotImplementedError("Copy!=True is not implemented in mindpandas.Dataframe.reindex.")
-
-        if axis is None:
-            axis = 0
+        validate_bool_kwarg(copy, "copy")
         axis = self._get_axis_number(axis)
-
-        if axis == 0 and labels is not None:
-            index = labels
-        elif labels is not None:
-            columns = labels
 
         if (
                 level is not None
                 or (index is not None and isinstance(index, pandas.MultiIndex))
                 or (columns is not None and isinstance(columns, pandas.MultiIndex))
         ):
-            raise TypeError(f"MultiIndex not supported")
-        output_dataframe = None
+            return self._qc.default_to_pandas(self,
+                                              df_method=self.reindex,
+                                              labels=labels,
+                                              index=index,
+                                              columns=columns,
+                                              axis=axis,
+                                              method=method,
+                                              copy=copy,
+                                              level=level,
+                                              fill_value=fill_value,
+                                              limit=limit,
+                                              tolerance=tolerance)
+        if labels is not None:
+            if axis == 0:
+                index = labels
+            else:
+                columns = labels
+
         if isinstance(tolerance, (mpd.DataFrame, mpd.Series)):
             tolerance = tolerance.to_pandas()
-        if index is not None:
-            if not isinstance(index, pandas.Index):
-                index = pandas.Index(index)
-            if not index.equals(self.index):
-                output_dataframe = self._qc.reindex(self, axis=0, labels=index,
-                                                    method=method, level=level,
-                                                    fill_value=fill_value, limit=limit,
-                                                    tolerance=tolerance)
-        if output_dataframe is None:
-            output_dataframe = self
-        final_output_datafrane = None
-        if columns is not None:
-            if not isinstance(columns, pandas.Index):
-                columns = pandas.Index(columns)
-            if not columns.equals(self.columns):
-                final_output_datafrane = self._qc.reindex(output_dataframe,
-                                                          axis=1, labels=columns,
-                                                          method=method, level=level,
-                                                          fill_value=fill_value, limit=limit,
-                                                          tolerance=tolerance)
-        if final_output_datafrane is None:
-            final_output_datafrane = output_dataframe
-        return final_output_datafrane
+
+        return self._qc.reindex(self,
+                                index=index,
+                                columns=columns,
+                                method=method,
+                                copy=copy,
+                                level=level,
+                                fill_value=fill_value,
+                                limit=limit,
+                                tolerance=tolerance)
+
 
     def sort_values(self,
                     by,

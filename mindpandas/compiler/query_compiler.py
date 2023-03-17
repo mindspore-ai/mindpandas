@@ -1608,12 +1608,26 @@ class QueryCompiler:
         return mpd.Series(data=frame)
 
     @classmethod
-    def reindex(cls, input_dataframe, **kwargs):
+    def reindex(cls, input_dataframe, index, columns, copy, **kwargs):
         """Compiling reindex"""
-        axis = kwargs.get('axis')
-        apply_func = ff.reindex(**kwargs)
+        output_frame = input_dataframe.backend_frame
+        if index is not None:
+            if not isinstance(index, pandas.Index):
+                index = pandas.Index(index)
+            if not index.equals(output_frame.index):
+                reduce_func = ff.reindex(labels=index, axis=0, **kwargs)
+                output_frame = output_frame.reduce(func=reduce_func, axis=0)
+        if columns is not None:
+            if not isinstance(columns, pandas.Index):
+                columns = pandas.Index(columns)
+            if not columns.equals(output_frame.columns):
+                reduce_func = ff.reindex(labels=columns, axis=1, **kwargs)
+                output_frame = output_frame.reduce(func=reduce_func, axis=1)
+        if not copy:
+            input_dataframe.set_backend_frame(output_frame)
+            return None
+        return type(input_dataframe)(output_frame)
 
-        input_dataframe.backend_frame = input_dataframe.backend_frame.reduce(func=apply_func, axis=axis)
 
     @classmethod
     def sort_rows_by_column_values(cls, input_dataframe, by, **kwargs):
