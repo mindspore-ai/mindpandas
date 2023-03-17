@@ -500,13 +500,6 @@ class QueryCompiler:
         return result
 
     @classmethod
-    def map_op(cls, input_dataframe, op_name, **kwargs):
-        map_func = getattr(ff, op_name)(**kwargs)
-        frame = input_dataframe.backend_frame.map(map_func)
-        return type(input_dataframe)(frame)
-
-
-    @classmethod
     def logical_op(cls, input_dataframe, op_name, axis, bool_only, skipna, level, **kwargs):
         """Compiling logical operation"""
         func = getattr(ff, op_name)(axis=axis, bool_only=bool_only, skipna=skipna, level=level, **kwargs)
@@ -1777,6 +1770,12 @@ class QueryCompiler:
             return mpd.Series(squeezed_results)
 
         return input_dataframe
+
+    @classmethod
+    def map_op(cls, input_dataframe, op_name, **kwargs):
+        map_func = getattr(ff, op_name)(**kwargs)
+        frame = input_dataframe.backend_frame.map(map_func)
+        return type(input_dataframe)(frame)
 
     @classmethod
     def has_multiindex(cls, input_dataframe, axis=0):

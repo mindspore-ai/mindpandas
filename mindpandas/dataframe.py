@@ -569,8 +569,7 @@ class DataFrame:
         return output_dataframe
 
     def isna(self):
-        output_dataframe = self._qc.map_op(self, "isna")
-        return output_dataframe
+        return self._qc.map_op(self, "isna")
 
     @property
     def dtypes(self):
@@ -580,8 +579,7 @@ class DataFrame:
     def isin(self, values):
         if isinstance(values, (mpd.DataFrame, mpd.Series)):
             values = values.to_pandas()
-        output_dataframe = self._qc.map_op(self, "isin", values=values)
-        return output_dataframe
+        return self._qc.map_op(self, "isin", values=values)
 
     def notna(self):
         output_dataframe = self._qc.default_to_pandas(df=self, df_method=self.notna)

@@ -686,8 +686,7 @@ class Series:
 
     def isna(self):
         """Returns series indicating whether element is Nan."""
-        output_series = self._qc.map_op(self, "isna", is_series=True)
-        return output_series
+        return self._qc.map_op(self, "isna")
 
     def isnull(self):
         """Returns series indicating whether element is Nan."""
@@ -871,8 +870,7 @@ class Series:
             values = values.to_pandas()
         if isinstance(values, dict):
             values = list(values.keys())
-        output = self._qc.map_op(self, "isin", values=values)
-        return output
+        return self._qc.map_op(self, "isin", values=values)
 
     @property
     def node_id(self):
