@@ -34,14 +34,15 @@ def set_concurrency_mode(mode, **kwargs):
         **kwargs: When running on multithread mode, no additional parameters are required. When running on multiprocess
             mode, additional parameters include:
 
-            * address: The ip address of the master node. Optional, uses "127.0.0.1" by default.
-            * cpu: The number of CPU cores to use. Optional, uses all CPU cores by default.
-            * datamem: The amount of memory used by datasystem (MB). Optional, uses 30% of total memory by default.
-            * mem: The total memory (including datamem) used by MindPandas (MB).
-                Optional, uses 90% of total memory by default.
-            * tmp_dir: The temporary directory for the mindpandas process. Optional, uses "/tmp/mindpandas" by default.
-            * tmp_file_size_limit: The temporary file size limit (MB).
-                Optional, the default value is "None" which uses up to 95% of current free disk space.
+            * address(str): The ip address of the master node. Optional, uses "127.0.0.1" by default.
+            * cpu(int): The number of CPU cores to use. Optional, uses all CPU cores by default.
+            * datamem(int): The amount of memory used by datasystem (MB). Optional, uses 30% of total memory by default.
+            * mem(int): The total memory (including datamem) used by MindPandas (MB).
+            Optional, uses 90% of total memory by default.
+            * tmp_dir(str): The temporary directory for the mindpandas process.
+            Optional, uses "/tmp/mindpandas" by default.
+            * tmp_file_size_limit(int): The temporary file size limit (MB).
+            Optional, the default value is "None" which uses up to 95% of current free disk space.
 
 
     Raises:
@@ -104,7 +105,7 @@ def set_benchmark_mode(mode):
 
 def get_benchmark_mode():
     """
-    Get the current benchmark mode.
+    Get the status of the benchmark mode in the current environment.
 
     Returns:
         bool, Indicates whether the benchmark mode is enabled.
@@ -206,25 +207,26 @@ def get_min_block_size():
 
 def set_adaptive_concurrency(adaptive, **kwargs):
     """
-    Users can set adaptive concurrency to allow read_csv to automatically select the concurrency mode based on the
-    file size. Available options are "True" or "False". When set to True, file sizes read from read_csv greater
-    than 18 MB and DataFrame initialized from pandas DataFrame using more than 1 GB CPU memory will use the
-    multiprocess mode, otherwise they will use the multithread mode. When set to False, it will use the current
-    concurrency mode.
+    Users can choose whether to enable the adaptive concurrency mode.
 
     Args:
-        adaptive(bool): True to turn on adaptive concurrency, False to turn off adaptive concurrency.
-        **kwargs: When 'adaptive' is set to False, no additional parameters are required. When 'adaptive' is set to
-            True, 'kwargs' includes:
+        adaptive(bool): Indicates whether to enable the adaptive concurrency mode. This function is enabled when this
+            parameter is set to True. When the size of the file read from read_csv is greater than 18 MB, when DataFrame
+            initialized from "pandas.DataFrame", or when the memory usage is greater than 1 GB will use the multiprocess
+            mode, otherwise multithread mode will be used. If this parameter is set to False, the adaptive concurrency
+            mode is disabled and the concurrency mode set in the current environment is used.
+        **kwargs: When `adaptive` is set to False, no additional parameters are required. When `adaptive` is set to
+            True, `kwargs` includes:
 
-            * address: The ip address of the master node. Optional, uses "127.0.0.1" by default.
-            * cpu: The number of CPU cores to use. Optional, uses all CPU cores by default.
-            * datamem: The amount of memory used by datasystem (MB). Optional, uses 30% of total memory by default.
-            * mem: The total memory (including datamem) used by MindPandas (MB).
-                Optional, uses 90% of total memory by default.
-            * tmp_dir: The temporary directory for the mindpandas process. Optional, uses "/tmp/mindpandas" by default.
-            * tmp_file_size_limit: The temporary file size limit (MB).
-                Optional, the default value is "None" which uses up to 95% of current free disk space.
+            * address(str): The ip address of the master node. Optional, uses "127.0.0.1" by default.
+            * cpu(int): The number of CPU cores to use. Optional, uses all CPU cores by default.
+            * datamem(int): The amount of memory used by datasystem (MB). Optional, uses 30% of total memory by default.
+            * mem(int): The total memory (including datamem) used by MindPandas (MB).
+            Optional, uses 90% of total memory by default.
+            * tmp_dir(str): The temporary directory for the mindpandas process.
+            Optional, uses "/tmp/mindpandas" by default.
+            * tmp_file_size_limit(int): The temporary file size limit (MB).
+            Optional, the default value is "None" which uses up to 95% of current free disk space.
 
     Raises:
         ValueError: if adaptive is not True or False.
@@ -248,7 +250,7 @@ def get_adaptive_concurrency():
     Get the flag for using adaptive concurrency or not.
 
     Returns:
-        bool, value of adaptive_concurrency flag.
+        bool, whether to apply the adaptive concurrency mode.
 
     Examples:
         >>> # Get the adaptive concurrency flag.
