@@ -20,6 +20,7 @@ import time
 import logging
 from collections import deque
 
+import numpy
 import pandas
 import mindpandas
 import yr
@@ -197,21 +198,24 @@ class DataSender(BaseChannel):
         self.actor = actor
 
     def send(self, obj):
-        """Send object through the channel.
+        """
+        Send object through the channel.
 
         Args:
-            obj (array-like): The object to send. It should be an array-like object(e.g. numpy.ndarray,
-                python list) that has "len" property, or a DataFrame object.
+            obj(Union[numpy.ndarray, list, mindpandas.DataFrame]): The object to send.
 
         Raises:
-            AttributeError: When the object has no len().
-            TypeError: When obj is not subscriptable.
+            TypeError: If the type of the `obj` is invalid.
+            ValueError: If the length of the `obj` is not a positive integer or cannot be evenly divided by the number
+                of shards.
 
         Examples:
-            >>> # sender is an instance object of DataSender
-            >>> data = [1, 2, 3, 4]
+            >>> # sender is an instance of DataSender
+            >>> data = mpd.DataFrame({'A': [1, 2], 'B': [3, 4]})
             >>> sender.send(data)
         """
+        if not isinstance(obj, (numpy.ndarray, list, mindpandas.DataFrame)):
+            raise TypeError(f"obj type not supported: {type(obj)}")
         num_shards = 1 if self.full_batch else self.num_shards
         if len(obj) <= 0 or len(obj) % num_shards != 0:
             raise ValueError("The length of the obj is invalid, should be a positive integer and can be divided by "
@@ -305,8 +309,12 @@ class DataReceiver(BaseChannel):
                  shard_id=0,
                  dataset_name='dataset'
                  ):
+        if not isinstance(namespace, str):
+            raise ValueError(f"namespace has to be a string, got {type(namespace)}")
         if not isinstance(shard_id, int) or shard_id < 0:
             raise ValueError(f"shard_id has to be a non-negative integer, got {shard_id} of type {type(shard_id)}")
+        if not isinstance(dataset_name, str):
+            raise ValueError(f"dataset_name has to be a string, got {type(dataset_name)}")
         self.cool_down = 0.1
         self._shard_id = shard_id
         self.actor = None

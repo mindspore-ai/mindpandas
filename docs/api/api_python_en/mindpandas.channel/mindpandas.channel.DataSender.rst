@@ -23,9 +23,9 @@
         Parameters
             - **obj** (Union[numpy.ndarray, list, mindpandas.DataFrame]) - The object to send.
 
-        Raises
-            - **AttributeError** - When the object has no `len()`.
-            - **TypeError** - When `obj` is not subscriptable.
+        Raises:
+            - **TypeError** - If the type of the `obj` is invalid.
+            - **ValueError** - If the length of the `obj` is not a positive integer or cannot be evenly divided by the number of shards.
 
     .. py:method:: num_shards
         :property:

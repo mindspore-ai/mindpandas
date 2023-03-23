@@ -24,8 +24,8 @@
             - **obj** (Union[numpy.ndarray, list, mindpandas.DataFrame]) - 要发送的对象。
 
         异常：
-            - **AttributeError** - 当对象没有 `len()` 时。
-            - **TypeError** - 当 `obj` 不能使用[]进行索引操作时。
+            - **TypeError** - 如果 `obj` 的类型不合法。
+            - **ValueError** - 如果 `obj` 的长度不是正整数或不能被分片数整除。
 
     .. py:method:: num_shards
         :property:
