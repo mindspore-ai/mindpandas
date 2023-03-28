@@ -30,10 +30,10 @@ init_vars() {
     PYTHON_VERSION_NUM=$(echo "$VERSION" | awk -F'.' '{print $1$2}')
     if [ "${PYTHON_VERSION_NUM}" == "39" ]; then
         DIST_EXECUTOR_MD5="c349b0bb78cd162412aaaa121f828e4a"
-        DOWNLOAD_PATH="https://mindpandas.obs.cn-north-4.myhuaweicloud.com/latest/py39/dist_executor.tar.gz"
+        DOWNLOAD_PATH="https://mindpandas.obs.cn-north-4.myhuaweicloud.com/0.2.0/py39/dist_executor.tar.gz"
     elif [ "${PYTHON_VERSION_NUM}" == "38" ]; then
         DIST_EXECUTOR_MD5="aa34d8dae4e2b84ce7a33285fd299da8"
-        DOWNLOAD_PATH="https://mindpandas.obs.cn-north-4.myhuaweicloud.com/latest/py38/dist_executor.tar.gz"
+        DOWNLOAD_PATH="https://mindpandas.obs.cn-north-4.myhuaweicloud.com/0.2.0/py38/dist_executor.tar.gz"
     fi
 }
 
