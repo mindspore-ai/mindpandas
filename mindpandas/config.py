@@ -26,7 +26,7 @@ def set_concurrency_mode(mode, **kwargs):
     Set the backend concurrency mode to parallelize the computation. Default mode is multithread. Available options
     are {'multithread', 'multiprocess'}. For the instruction and usage of two modes, please referring to
     `MindPandas execution mode introduction and configuration instructions
-    <https://www.mindspore.cn/mindpandas/docs/zh-CN/master/mindpandas_configuration.html>`_ for more information.
+    <https://www.mindspore.cn/mindpandas/docs/zh-CN/r0.2/mindpandas_configuration.html>`_ for more information.
 
     Args:
         mode(str): This parameter can be set to 'multithread' for multithread backend, or 'multiprocess' for
