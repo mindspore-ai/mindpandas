@@ -121,8 +121,8 @@ def get_benchmark_mode():
 def set_partition_shape(shape):
     """
     Users can set the partition shape of the data, where shape[0] is the expected number of partitions along axis 0 (
-    row-wise) and shape[1] is the expected number of partitions along axis 1 (column-wise). e.g. If the shape is (16,
-    16), then mindpandas will try to slice original data into 16 * 16 partitions.
+    row-wise) and shape[1] is the expected number of partitions along axis 1 (column-wise). e.g. If the shape is
+    :math:`(16, 16)`, then mindpandas will try to slice original data into 16 * 16 partitions.
 
     Args:
         shape(tuple): Number of expected partitions along each axis. It should be a tuple of two positive integers.
@@ -170,8 +170,8 @@ def set_min_block_size(min_block_size):
     Users can set the min block size of each partition using this API. It means the minimum size of each axis of each
     partition. In other words, each partition's size would be larger or equal to (min_block_size, min_block_size),
     unless the original data is smaller than this size. For example, if the min_block_size is set to be 32,
-    and I have a dataframe which only has 16 columns and the partition shape is (2, 2), then during the partitioning
-    we won't further split the columns.
+    and I have a dataframe which only has 16 columns and the partition shape is :math:`(2, 2)`,
+    then during the partitioning we won't further split the columns.
 
     Args:
         min_block_size(int): Minimum size of a partition's number of rows and number of columns during partitioning.
