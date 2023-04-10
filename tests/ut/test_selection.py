@@ -96,11 +96,10 @@ def test_selection_on_join():
         res2 = res1[res1.col12 >= 22][['col13', 'col22']]
         return res2
 
-    TESTUTIL.compare(test_project_inner_join, create_input_dataframe, ignore_index=True)
-    TESTUTIL.compare(test_project_left_join_1, create_input_dataframe, ignore_index=True)
-    TESTUTIL.compare(test_project_left_join_2, create_input_dataframe, ignore_index=True)
-    TESTUTIL.compare(test_project_right_join, create_input_dataframe,
-                     ignore_index=True, compare_pd_ms=False)
+    TESTUTIL.compare(test_project_inner_join, create_input_dataframe)
+    TESTUTIL.compare(test_project_left_join_1, create_input_dataframe)
+    TESTUTIL.compare(test_project_left_join_2, create_input_dataframe)
+    TESTUTIL.compare(test_project_right_join, create_input_dataframe)
 
 
 @pytest.mark.usefixtures("set_mode", "set_shape")
@@ -144,8 +143,8 @@ def test_selection_on_groupby():
         res2 = res1[res1.col2 >= 21][['col1', 'col3', 'col5']]
         return res2
 
-    TESTUTIL.compare(test_select_on_sum, create_input_dataframe, ignore_index=True)
-    TESTUTIL.compare(test_select_on_count, create_input_dataframe, ignore_index=True)
-    TESTUTIL.compare(test_select_on_size, create_input_dataframe, ignore_index=True)
-    TESTUTIL.compare(test_select_on_min, create_input_dataframe, ignore_index=True)
-    TESTUTIL.compare(test_select_on_max, create_input_dataframe, ignore_index=True)
+    TESTUTIL.compare(test_select_on_sum, create_input_dataframe)
+    TESTUTIL.compare(test_select_on_count, create_input_dataframe)
+    TESTUTIL.compare(test_select_on_size, create_input_dataframe)
+    TESTUTIL.compare(test_select_on_min, create_input_dataframe)
+    TESTUTIL.compare(test_select_on_max, create_input_dataframe)

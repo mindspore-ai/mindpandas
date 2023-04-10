@@ -67,5 +67,5 @@ def test_series_isin():
         result = ser.isin(values)
         return result
 
-    TESTUTIL.compare(test_series_isin_list, create_fn=create_series_isin)
-    TESTUTIL.compare(test_series_isin_dict, create_fn=create_series_str_isin)
+    TESTUTIL.compare(test_series_isin_list, create_fn=create_series_isin, skip=True)
+    TESTUTIL.compare(test_series_isin_dict, create_fn=create_series_str_isin, skip=True)

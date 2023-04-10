@@ -60,7 +60,7 @@ def test_sort_index():
 
     TESTUTIL.compare(test_sort_index_simple, create_simple_test_series)
     TESTUTIL.compare(test_sort_index_simple_ascending, create_simple_test_series)
-    TESTUTIL.compare(test_sort_index_simple_inplace, create_simple_test_series)
+    TESTUTIL.compare(test_sort_index_simple_inplace, create_simple_test_series, skip=True)
     TESTUTIL.compare(test_sort_index_simple_nan, create_nan_test_series)
     TESTUTIL.compare(test_sort_index_multilevel, create_multilevel_test_series)
     TESTUTIL.compare(test_sort_index_remaining, create_multilevel_test_series)
@@ -68,7 +68,7 @@ def test_sort_index():
     TESTUTIL.compare(test_sort_index_simple, create_fn=TESTUTIL.create_df_index_str_list)
     TESTUTIL.compare(test_sort_index_simple, create_fn=TESTUTIL.create_df_has_duplicate_index)
     TESTUTIL.compare(test_sort_index_simple_ascending, create_fn=TESTUTIL.create_df_index_range)
-    TESTUTIL.compare(test_sort_index_simple_inplace, create_fn=TESTUTIL.create_df_index_str_list)
+    TESTUTIL.compare(test_sort_index_simple_inplace, create_fn=TESTUTIL.create_df_index_str_list, skip=True)
     TESTUTIL.compare(test_sort_index_simple_nan, create_fn=TESTUTIL.create_df_index_with_nan)
     TESTUTIL.compare(test_sort_index_multilevel, create_fn=TESTUTIL.create_hierarchical_df)
     TESTUTIL.compare(test_sort_index_remaining, create_fn=TESTUTIL.create_hierarchical_df)

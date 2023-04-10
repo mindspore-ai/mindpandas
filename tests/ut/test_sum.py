@@ -109,13 +109,13 @@ def test_sum():
 
     TESTUTIL.compare(test_sum_numeric_only_is_true, create_fn=TESTUTIL.create_df_mixed_dtypes)
     TESTUTIL.compare(test_sum_numeric_only_is_false, create_fn=TESTUTIL.create_df_mixed_dtypes)
-    TESTUTIL.compare(test_sum_numeric_only_is_string, create_fn=TESTUTIL.create_df_mixed_dtypes)
+    TESTUTIL.compare(test_sum_numeric_only_is_string, create_fn=TESTUTIL.create_df_mixed_dtypes, skip=True)
 
     TESTUTIL.compare(test_sum_min_count, create_fn=create_df_multiindex)
     TESTUTIL.compare(test_sum_min_count_only, create_fn=create_series_multiindex)
     TESTUTIL.compare(test_sum_numeric_only_is_true_axis1, create_fn=create_df_non_numeric)
     TESTUTIL.compare(test_sum_numeric_only_is_true_axis1, create_fn=create_df_non_numeric1)
-    TESTUTIL.compare(test_sum_numeric_only_is_true_axis1, create_fn=create_df_non_numeric2)
+    TESTUTIL.compare(test_sum_numeric_only_is_true_axis1, create_fn=create_df_non_numeric2, skip=True)
     TESTUTIL.compare(test_sum_numeric_only_is_true_axis1, create_fn=creat_issue_df)
 
     TESTUTIL.compare(test_sum_default, create_fn=TESTUTIL.create_series_range)

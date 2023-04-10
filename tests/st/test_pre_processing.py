@@ -1,5 +1,7 @@
 import random
 import pandas as pd
+from pandas.testing import assert_frame_equal, assert_series_equal
+
 import mindpandas as mpd
 import numpy as np
 import pytest
@@ -64,25 +66,25 @@ def test_end_to_end(concurrency_mode):
     np_cat = np.array(cat_val).reshape(ROW_NUM, SPARSE_NUM)
     df_cat = pd.DataFrame(np_cat, columns=[f'C{i + 1}' for i in range(SPARSE_NUM)])
     mdf_cat = mpd.DataFrame(np_cat, columns=[f'C{i + 1}' for i in range(SPARSE_NUM)])
-    assert df_cat.equals(mdf_cat.to_pandas())
+    assert_frame_equal(df_cat, mdf_cat.to_pandas())
 
     for i in range(ROW_NUM * DENSE_NUM):
         int_val.append(get_int_feature())
     np_int = np.array(int_val).reshape(ROW_NUM, DENSE_NUM)
     df_int = pd.DataFrame(np_int, columns=[f'I{i + 1}' for i in range(DENSE_NUM)])
     mdf_int = mpd.DataFrame(np_int, columns=[f'I{i + 1}' for i in range(DENSE_NUM)])
-    assert df_int.equals(mdf_int.to_pandas())
+    assert_frame_equal(df_int, mdf_int.to_pandas())
 
     for i in range(ROW_NUM):
         lab_val.append(get_lab_feature())
     np_lab = np.array(lab_val).reshape(ROW_NUM, 1)
     df_lab = pd.DataFrame(np_lab, columns=['label'])
     mdf_lab = mpd.DataFrame(np_lab, columns=['label'])
-    assert df_lab.equals(mdf_lab.to_pandas())
+    assert_frame_equal(df_lab, mdf_lab.to_pandas())
 
     df = pd.concat([df_lab, df_int, df_cat], axis=1)
     mdf = mpd.concat([mdf_lab, mdf_int, mdf_cat], axis=1)
-    assert df.equals(mdf.to_pandas())
+    assert_frame_equal(df, mdf.to_pandas())
 
     for i, j in enumerate(df_int.max()):
         max_dict[f'I{i + 1}'] = j
@@ -97,9 +99,9 @@ def test_end_to_end(concurrency_mode):
     mfeatures = mdf.iloc[:, 1:40]
     mfeat_id = mfeatures.apply(get_id, axis=1)
     mfeat_weight = mfeatures.apply(get_weight, axis=1)
-    assert features.equals(mfeatures.to_pandas())
-    assert feat_id.equals(mfeat_id.to_pandas())
-    assert feat_weight.equals(mfeat_weight.to_pandas())
+    assert_frame_equal(features, mfeatures.to_pandas())
+    assert_series_equal(feat_id, mfeat_id.to_pandas())
+    assert_series_equal(feat_weight, mfeat_weight.to_pandas())
 
     df['weight'] = feat_weight
     df['id'] = feat_id
@@ -108,7 +110,7 @@ def test_end_to_end(concurrency_mode):
     mdf['weight'] = mfeat_weight
     mdf['id'] = mfeat_id
     mdf['label'] = mdf['label'].apply(get_label)
-    assert df.equals(mdf.to_pandas())
+    assert_frame_equal(df, mdf.to_pandas())
 
     df = df[['id', 'weight', 'label']]
     mdf = mdf[['id', 'weight', 'label']]

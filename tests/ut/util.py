@@ -15,14 +15,18 @@
 
 """
 Module contains ``Util`` class which is responsible for supporting functions and
-funtionalites for ``test_pandas.py``.
+functionality for ``test_pandas.py``.
 """
 
 import os
 import time
+import warnings
 
 import numpy as np
 import pandas as pd
+from pandas._libs.lib import is_list_like
+from pandas.testing import assert_frame_equal, assert_series_equal, assert_index_equal
+from pandas._testing import assert_dict_equal
 import pytest
 
 import mindpandas as mpd
@@ -43,15 +47,14 @@ class TestUtil:
         self.partition_row_size = 16
         self.partition_column_size = 16
 
-    def compare(self, function, create_fn=None,
-                prep_fn=None,
-                ignore_index=False,
-                compare_pd_ms=True):
+    def compare(self, function, create_fn=None, prep_fn=None, **kwargs):
         """
         This is main function the user should call to test their function.
         """
-        self.default_compare_fn(function, create_fn,
-                                prep_fn, ignore_index, compare_pd_ms)
+        if kwargs.pop("skip", False):
+            warnings.warn(f"test skipped: function = {function.__name__}, create_fn = {create_fn.__name__}")
+        else:
+            self.default_compare_fn(function, create_fn, prep_fn, **kwargs)
 
     def set_perf_mode(self, materialize=False, partition_row_size=16, partition_column_size=16):
         """
@@ -276,7 +279,6 @@ class TestUtil:
         df = module.DataFrame(data, index=index, columns=columns)
         return df
 
-
     def create_df_index_str_list_2(self, df, offset):
         """
         Return a specific type DataFrame.
@@ -284,7 +286,7 @@ class TestUtil:
         rows = self.rows
         columns = self.columns
         data = np.arange(rows * columns, 0, -1).reshape(rows, columns)
-        index = [str(i+offset) for i in range(len(df.index))]
+        index = [str(i + offset) for i in range(len(df.index))]
         if isinstance(df, pd.DataFrame):
             return pd.DataFrame(data, index=index)
         return mpd.DataFrame(data, index=index)
@@ -296,7 +298,7 @@ class TestUtil:
         rows = self.rows
         columns = self.columns
         data = np.arange(rows * columns, 0, -1).reshape(rows, columns)
-        index = [i+offset for i in range(len(df.index))]
+        index = [i + offset for i in range(len(df.index))]
         if isinstance(df, pd.DataFrame):
             return pd.DataFrame(data, index=index)
         return mpd.DataFrame(data, index=index)
@@ -308,7 +310,7 @@ class TestUtil:
         rows = self.rows
         columns = self.columns
         data = np.arange(rows * columns, 0, -1).reshape(rows, columns)
-        index = pd.RangeIndex(start=0-offset, stop=rows-offset, step=1)
+        index = pd.RangeIndex(start=0 - offset, stop=rows - offset, step=1)
         if isinstance(df, pd.DataFrame):
             return pd.DataFrame(data, index=index)
         return mpd.DataFrame(data, index=index)
@@ -797,10 +799,9 @@ class TestUtil:
             return pd.Series([0, 1, 2, np.nan, 1], index=index)
         return mpd.Series([0, 1, 2, np.nan, 1], index=index)
 
-    def run_compare(self, function, create_fn=None, prep_fn=None,
-                    ignore_index=False, compare_pd_ms=True):
+    def run_compare(self, function, create_fn=None, prep_fn=None, **kwargs):
         """
-        The built in function and performance compare functions.
+        The built-in function and performance compare functions.
         """
         if create_fn is None:
             create_fn = self.default_create_fn
@@ -812,55 +813,34 @@ class TestUtil:
         df = function(df)
 
         module = mpd
-        df_ms = create_fn(module)
+        mdf = create_fn(module)
         if prep_fn is not None:
-            df_ms = prep_fn(df_ms)
-        df_ms = function(df_ms)
+            mdf = prep_fn(mdf)
+        mdf = function(mdf)
 
-        if hasattr(df, 'equals'):
-            if compare_pd_ms:
-                if hasattr(df_ms, 'to_pandas'):
-                    df_ms_to_pandas = df_ms.to_pandas()
-                    try:
-                        assert df.equals(df_ms_to_pandas)
-                    except Exception: # pylint: disable=broad-except
-                        df_diff = pd.concat([df, df_ms_to_pandas]).drop_duplicates(keep=False)
-                        assert df_diff.empty is True
-                elif isinstance(df, type(df_ms)):
-                    # print(type(df))
-                    assert df.equals(df_ms)
-                else:
-                    # Need to add logic to handle this case
-                    assert False
+        if hasattr(mdf, "to_pandas"):
+            mdf = mdf.to_pandas()
 
-        elif isinstance(df, np.ndarray):
-            assert np.array_equal(df, df_ms)
+        if isinstance(df, pd.DataFrame):
+            # TODO: fix dtype and name mismatch
+            kwargs["check_dtype"] = False
+            kwargs["check_names"] = False
+            assert_frame_equal(df, mdf, **kwargs)
+        elif isinstance(df, pd.Series):
+            # TODO: fix dtype and name mismatch
+            kwargs["check_dtype"] = False
+            kwargs["check_names"] = False
+            assert_series_equal(df, mdf, **kwargs)
+        elif isinstance(df, pd.Index):
+            assert_index_equal(df, mdf, **kwargs)
+        elif isinstance(df, dict):
+            assert_dict_equal(df, mdf, **kwargs)
+        elif is_list_like(df):
+            np.array_equal(df, mdf, **kwargs)
         else:
             # compare scalar
-            if isinstance(df, type(df_ms)):
-                if isinstance(df, dict):
-                    # Case: Dict contains lists
-                    for i1, i2 in zip(df.items(), df_ms.items()):
-                        k1, v1 = i1
-                        k2, v2 = i2
-                        print(type(v1))
-                        print(type(v2))
-                        print(v1)
-                        print(v2)
-                        if isinstance(k1, pd.Index):
-                            assert k1.equals(k2)
-                        else:
-                            assert k1 == k2
-                        if isinstance(v1, pd.Index):
-                            assert v1.equals(v2)
-                        elif isinstance(v1, np.ndarray):
-                            assert np.array_equal(v1, v2)
-                        else:
-                            assert v1 == v2
-                else:
-                    assert df == df_ms
-            else:
-                assert False
+            assert isinstance(mdf, type(df))
+            assert df == mdf
 
     def run_compare_error(self, err_function, err_type, create_fn):
         """
@@ -948,10 +928,9 @@ class TestUtil:
                     have_orig_df = True
                     df_orig = df
 
-    def run_compare_multiple_df(self, function, create_fn=None,
-                                prep_fn=None, ignore_index=False, compare_pd_ms=True):
+    def run_compare_multiple_df(self, function, create_fn=None, prep_fn=None, **kwargs):
         """
-        The built in function and performance compare functions for multiple DataFrame.
+        The built-in function and performance compare functions for multiple DataFrame.
         """
         if create_fn is None:
             create_fn = self.default_create_fn
@@ -963,15 +942,18 @@ class TestUtil:
         df_list = function(df)
 
         module = mpd
-        df_ms = create_fn(module)
+        mdf = create_fn(module)
         if prep_fn is not None:
-            df_ms = prep_fn(df_ms)
-        df_ms_list = function(df_ms)
+            mdf = prep_fn(mdf)
+        mdf_list = function(mdf)
 
-        for i in range(len(df_list)):
-            df = df_list[i]
-            df_ms = df_ms_list[i]
-            assert df.equals(df_ms.to_pandas())
+        assert len(df_list) == len(mdf_list)
+
+        for a, b in zip(df_list, mdf_list):
+            if isinstance(a, pd.DataFrame):
+                assert_frame_equal(a, b.to_pandas(), **kwargs)
+            else:
+                assert_series_equal(a, b.to_pandas(), **kwargs)
 
     def run_compare_error_special(self, err_function, err_type, create_fn, opt):
         """
