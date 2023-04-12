@@ -38,11 +38,11 @@ def set_concurrency_mode(mode, **kwargs):
             * cpu(int): The number of CPU cores to use. Optional, uses all CPU cores by default.
             * datamem(int): The amount of memory used by datasystem (MB). Optional, uses 30% of total memory by default.
             * mem(int): The total memory (including datamem) used by MindPandas (MB).
-            Optional, uses 90% of total memory by default.
+              Optional, uses 90% of total memory by default.
             * tmp_dir(str): The temporary directory for the mindpandas process.
-            Optional, uses "/tmp/mindpandas" by default.
+              Optional, uses "/tmp/mindpandas" by default.
             * tmp_file_size_limit(int): The temporary file size limit (MB).
-            Optional, the default value is "None" which uses up to 95% of current free disk space.
+              Optional, the default value is "None" which uses up to 95% of current free disk space.
 
 
     Raises:
@@ -222,11 +222,11 @@ def set_adaptive_concurrency(adaptive, **kwargs):
             * cpu(int): The number of CPU cores to use. Optional, uses all CPU cores by default.
             * datamem(int): The amount of memory used by datasystem (MB). Optional, uses 30% of total memory by default.
             * mem(int): The total memory (including datamem) used by MindPandas (MB).
-            Optional, uses 90% of total memory by default.
+              Optional, uses 90% of total memory by default.
             * tmp_dir(str): The temporary directory for the mindpandas process.
-            Optional, uses "/tmp/mindpandas" by default.
+              Optional, uses "/tmp/mindpandas" by default.
             * tmp_file_size_limit(int): The temporary file size limit (MB).
-            Optional, the default value is "None" which uses up to 95% of current free disk space.
+              Optional, the default value is "None" which uses up to 95% of current free disk space.
 
     Raises:
         ValueError: if adaptive is not True or False.
