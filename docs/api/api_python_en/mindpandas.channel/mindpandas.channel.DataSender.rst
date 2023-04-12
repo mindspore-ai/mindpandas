@@ -23,7 +23,7 @@
         Parameters
             - **obj** (Union[numpy.ndarray, list, mindpandas.DataFrame]) - The object to send.
 
-        Raises:
+        Raises
             - **TypeError** - If the type of the `obj` is invalid.
             - **ValueError** - If the length of the `obj` is not a positive integer or cannot be evenly divided by the number of shards.
 
