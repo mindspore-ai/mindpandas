@@ -17,6 +17,7 @@ This module is used to build logical plan for lazy mode
 """
 import pandas
 from pandas._libs.lib import no_default, is_scalar
+from pandas.core.dtypes.common import is_list_like
 import mindpandas as mpd
 from mindpandas.compiler.function_factory import FunctionFactory as ff
 from .query_plan import Function, fn_op_map, Operator
@@ -218,13 +219,33 @@ class LogicalPlanBuilder:
 
     @classmethod
     def default_to_pandas(cls, df, df_method, *args, force_series=False, **kwargs):
-        if isinstance(type(df_method), str):
-            # some ops have sub methods such as MathOp -> {add, sub, mul, div}
-            print("in logical_plan ", df_method)
-            raise NotImplementedError(
-                f"The function `{df_method} has not yet implemented in lazy mode.")
-        raise NotImplementedError(
-            f"The function `{df_method.__name__} has not yet implemented in lazy mode.")
+        """
+        Build a logical operator to represent the default_to_pandas
+        """
+        kwargs['force_series'] = force_series
+        if not isinstance(df_method, str):
+            kwargs['df_method'] = df_method.__name__
+        else:
+            kwargs['df_method'] = df_method
+
+        list_args = [args] if not is_list_like(args) else args
+        if isinstance(list_args, tuple):
+            list_args = list(list_args)
+        operands = [df.node_id]
+        for i, arg in enumerate(list_args):
+            if isinstance(arg, mpd.DataFrame):
+                operands.append(arg.node_id)
+            kwargs["_arg_" + str(i)] = "_Unprocessed_Lazy_DataFrame_"
+
+        for param_name, param in kwargs.items():
+            if isinstance(param, mpd.DataFrame):
+                operands.append(param.node_id)
+                kwargs[param_name] = "_Unprocessed_Lazy_DataFrame_"
+
+        node_id = cls.dag.add_op_node(name=fn_op_map[Function.DEFAULT_TO_PANDAS], fn=Function.DEFAULT_TO_PANDAS,
+                                      children=operands, **kwargs)
+        cls.cross_reference(node_id, df)
+        return df
 
     @classmethod
     def series_comp_op(cls, input_obj, op, other, scalar_other, level=None, fill_value=None, axis=0):

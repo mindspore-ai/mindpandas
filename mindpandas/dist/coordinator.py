@@ -82,6 +82,9 @@ class BatchCoordinator:
                                                                                     input_frame2.backend_frame,
                                                                                     fn,
                                                                                     is_scalar=False))
+        if name == Operator.DEFAULT_TO_PANDAS:
+            frame = fn(input_frame)
+            return frame
         assert 0
         return None
 

@@ -76,6 +76,9 @@ class Checker:
     def check_filter(self, node_id):
         """Checks if the specified node is a filter operation and performs semantic checks."""
 
+    def default_to_pandas(self, node_id):
+        """Checks if the specified node is a default to pandas operation and performs semantic checks."""
+
     def run(self):
         """Runs semantic checks on all nodes in the DAG and returns the validated plan."""
         # A collection of semantics checking rules
@@ -86,6 +89,7 @@ class Checker:
             Operator.AGGF: self.check_agg,
             Operator.JOIN: self.check_join,
             Operator.FILTER: self.check_filter,
+            Operator.DEFAULT_TO_PANDAS: self.default_to_pandas,
         }
         node_ids = self.plan.postorder_nodes(self.root)
         for node_id in node_ids:

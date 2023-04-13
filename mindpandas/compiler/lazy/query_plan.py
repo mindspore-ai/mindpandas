@@ -66,6 +66,7 @@ class Operator(Enum):
     SETITEM = 21
     AUX = 22
     VIEW = 23
+    DEFAULT_TO_PANDAS = 24
 
     def __str__(self):
         str_map: dict = {
@@ -92,7 +93,8 @@ class Operator(Enum):
             Operator.SOURCEREP: 'ReadRepartition',
             Operator.SETITEM: 'SetItem',
             Operator.AUX: 'Aux',
-            Operator.VIEW: 'View'
+            Operator.VIEW: 'View',
+            Operator.DEFAULT_TO_PANDAS: 'DefaultToPandas'
         }
         try:
             string = str_map[self]
@@ -141,6 +143,7 @@ class Function(Enum):
     APPLYMAP = 306
     NOOP = 307
     AUX = 308
+    DEFAULT_TO_PANDAS = 400
 
     def __str__(self):
         str_map: dict = {
@@ -180,7 +183,8 @@ class Function(Enum):
             Function.APPLYMAP: 'applymap',
             Function.NOOP: 'noop',
             Function.AUX: 'AUX',
-            Function.VIEW: 'view'
+            Function.VIEW: 'view',
+            Function.DEFAULT_TO_PANDAS: 'default_to_pandas'
         }
         try:
             string = str_map[self]
@@ -225,4 +229,5 @@ fn_op_map: dict = {
     Function.FILLNA: Operator.MAP1,
     Function.APPLYMAP: Operator.MAP1,
     Function.VIEW: Operator.VIEW,
+    Function.DEFAULT_TO_PANDAS: Operator.DEFAULT_TO_PANDAS,
 }

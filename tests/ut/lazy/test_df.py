@@ -139,6 +139,47 @@ def helper_quick_test(op_name, enable_debug=False):
         helper_op_pd_testing(data, op_name, kwargs, enable_debug)
 
 
+# ========= DEFAULT TO PANDAS CASES ==========
+def helper_default_to_pandas_test(op_name, enable_debug=False):
+    '''Helper to perform default to pandas tests'''
+    def _create_nan_dataframe():
+        nan_df = pd.DataFrame({'A': [np.nan, 2, np.nan, 0],
+                               'B': [3, 4, np.nan, 1],
+                               'C': [np.nan, 5, np.nan, np.nan],
+                               'D': [np.nan, 3, np.nan, 4]})
+        return nan_df
+
+    def _create_multiindex_dataframe():
+        multicol1 = pd.MultiIndex.from_tuples([('weight', 'kg'),
+                                               ('weight', 'pounds')])
+        multiindex_df = pd.DataFrame([[1, 2], [2, 4]],
+                                     index=['cat', 'dog'],
+                                     columns=multicol1)
+        return multiindex_df
+
+    def _create_multilevel_dataframe():
+        df = pd.DataFrame([[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]]).set_index([0, 1]).rename_axis(['a', 'b'])
+        df.columns = pd.MultiIndex.from_tuples([('c', 'e'), ('d', 'f')], names=['level_1', 'level_2'])
+        return df
+
+    mpd.set_lazy_mode(True)
+
+    if op_name == "notna":
+        data = _create_nan_dataframe()
+        kwargs = {}
+    elif op_name == "stack":
+        data = _create_multiindex_dataframe()
+        kwargs = {"level": -1}
+    elif op_name == "unstack":
+        data = _create_multiindex_dataframe()
+        kwargs = {"level": 0}
+    elif op_name == "droplevel":
+        data = _create_multilevel_dataframe()
+        kwargs = {"level": 'a'}
+
+    helper_op_pd_testing(data, op_name, kwargs, enable_debug)
+
+
 @pytest.mark.usefixtures("set_mode", "set_shape")
 def test_batch_notdist_apply():
     """
@@ -227,3 +268,39 @@ def test_batch_notdist_sum():
     Expectation: same output as pandas.DataFrame.sum
     """
     helper_quick_test(op_name="sum")
+
+@pytest.mark.usefixtures("set_mode", "set_shape")
+def test_batch_notdist_notna():
+    """
+    Test sum
+    Description: tests df.sum in lazy mode
+    Expectation: same output as pandas.DataFrame.sum
+    """
+    helper_default_to_pandas_test(op_name="notna")
+
+@pytest.mark.usefixtures("set_mode", "set_shape")
+def test_batch_notdist_stack():
+    """
+    Test sum
+    Description: tests df.sum in lazy mode
+    Expectation: same output as pandas.DataFrame.sum
+    """
+    helper_default_to_pandas_test(op_name="stack")
+
+@pytest.mark.usefixtures("set_mode", "set_shape")
+def test_batch_notdist_unstack():
+    """
+    Test sum
+    Description: tests df.sum in lazy mode
+    Expectation: same output as pandas.DataFrame.sum
+    """
+    helper_default_to_pandas_test(op_name="unstack")
+
+@pytest.mark.usefixtures("set_mode", "set_shape")
+def test_batch_notdist_droplevel():
+    """
+    Test sum
+    Description: tests df.sum in lazy mode
+    Expectation: same output as pandas.DataFrame.sum
+    """
+    helper_default_to_pandas_test(op_name="droplevel")

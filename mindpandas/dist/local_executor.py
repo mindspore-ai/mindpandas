@@ -18,9 +18,10 @@ of operation in the plan
 """
 import copy
 
-#from .query_compiler import QueryCompiler as qc
+from ..compiler.query_compiler import QueryCompiler as qc
 from ..compiler.lazy.query_plan import Function, Operator
 from ..compiler.function_factory import FunctionFactory as ff
+
 
 class Executor:
     """
@@ -154,6 +155,43 @@ class Executor:
             return df
         return self.input[0]
 
+    def run_default_to_pandas(self, node_id, **kwargs):
+        """Executes default to pandas"""
+        child_ids = self.plan.children(node_id)
+        input_frame = self.plan.result(child_ids[0])
+
+        force_series = kwargs['force_series']
+        df_method = kwargs['df_method']
+
+        del kwargs['force_series']
+        del kwargs['df_method']
+
+        children_counter = 1
+        args = []
+        arg_i = 1
+        current_kwarg_arg = "_arg_" + str(arg_i)
+        while current_kwarg_arg in kwargs:
+            arg_ = kwargs[current_kwarg_arg]
+            if hasattr(arg_, "to_pandas"):
+                arg_frame = self.plan.result(child_ids[children_counter])
+                children_counter += 1
+
+                args.append(arg_frame)
+            else:
+                args.append(arg_)
+            del kwargs[current_kwarg_arg]
+
+            arg_i += 1
+            current_kwarg_arg = "_arg_" + str(arg_i)
+
+        for key, val in kwargs.items():
+            if val == "_Unprocessed_Lazy_DataFrame_":
+                kwarg_frame = self.plan.result(child_ids[children_counter])
+                children_counter += 1
+
+                kwargs[key] = kwarg_frame
+        return qc.default_to_pandas(input_frame, df_method, *args, force_series=force_series, **kwargs)
+
     def process_dest(self, result):
         """Processes destination by type and returns final result"""
         if isinstance(self.dest, dict):
@@ -189,6 +227,8 @@ class Executor:
             func_call = self.run_map
         elif name == Operator.GROUPBY and func == Function.GROUPBY:
             func_call = self.run_groupby
+        elif name == Operator.DEFAULT_TO_PANDAS:
+            func_call = self.run_default_to_pandas
         else:
             func_call = None
         return func_call
