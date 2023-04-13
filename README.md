@@ -1,10 +1,10 @@
-# Welcome to MindPandas
+# Welcome to MindSpore Pandas
 
 [查看中文](./README_CN.md)
 
 <!-- TOC -->
 
-- [What Is MindPandas](#what-is-mindpandas)
+- [What Is MindSpore Pandas](#what-is-mindspore-pandas)
     - [Overview](#overview)
     - [Architecture](#architecture)
 - [Installation Methods](#installation-methods)
@@ -20,17 +20,17 @@
 
 <!-- /TOC -->
 
-## What Is MindPandas
+## What Is MindSpore Pandas
 
 ### Overview
 
-MindPandas uses distributed computing engine to accelerate pandas operations, seamlessly integrated and compatible with existing pandas code. Using MindPandas for calculations can use all CPU cores on the computer, which makes MindPandas works especially well on larger datasets.
+MindSpore Pandas uses distributed computing engine to accelerate pandas operations, seamlessly integrated and compatible with existing pandas code. Using MindSpore Pandas for calculations can use all CPU cores on the computer, which makes MindSpore Pandas works especially well on larger datasets.
 
 ### Architecture
 
-MindPandas is implemented based on distribution, while native pandas is implemented based on single thread. This means that only one CPU core can be used at a time.
+MindSpore Pandas is implemented based on distribution, while native pandas is implemented based on single thread. This means that only one CPU core can be used at a time.
 
-However, MindPandas can use more threads and cores on the machine, or all cores of the entire cluster.
+However, MindSpore Pandas can use more threads and cores on the machine, or all cores of the entire cluster.
 
 For detailed architecture design, please refer to [official website document](https://www.mindspore.cn/mindpandas/docs/en/master/index.html).
 
@@ -38,7 +38,7 @@ For detailed architecture design, please refer to [official website document](ht
 
 ### Confirming System Environment Information
 
-The following table lists the environment required for installing, compiling and running MindPandas:
+The following table lists the environment required for installing, compiling and running MindSpore Pandas:
 
 | software |             version              |
 | :------: |:--------------------------------:|
@@ -51,9 +51,9 @@ The following table lists the environment required for installing, compiling and
 
 ### Installing from pip command
 
-If you use the pip, please download the whl package from [MindPandas](https://www.mindspore.cn/versions/en) page and install it.
+If you use the pip, please download the whl package from [MindSpore Pandas](https://www.mindspore.cn/versions/en) page and install it.
 
-> Installing whl package will download MindPandas dependencies automatically (detail of dependencies is shown in requirements.txt) in the networked state, and other dependencies should be installed manually.
+> Installing whl package will download MindSpore Pandas dependencies automatically (detail of dependencies is shown in requirements.txt) in the networked state, and other dependencies should be installed manually.
 
 ### Installing from source code
 
@@ -81,13 +81,13 @@ python -c "import mindpandas"
 
 ## Quickstart
 
-First import MindPandas with the following command.
+First import MindSpore Pandas with the following command.
 
 ```python
 import mindpandas as pd
 ```
 
-Set the running mode of MindPandas with the following command, which can speed up your MindPandas workflow.
+Set the running mode of MindSpore Pandas with the following command, which can speed up your MindSpore Pandas workflow.
 
 ```python
 pd.set_concurrency_mode('multithread')
