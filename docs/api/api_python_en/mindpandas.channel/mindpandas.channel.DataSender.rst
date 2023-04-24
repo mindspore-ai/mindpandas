@@ -4,11 +4,11 @@
 
     Parameters
         - **address** (str) - The ip address of the node current sender runs on.
-        - **namespace** (str, optional) - The namespace that the channel belongs to. By default the value is `default` and the sender will be running in namespace `default`. DataSender and DataReceiver in different namespaces cannot connect to each other.
-        - **num_shards** (int, optional) - Specifies how many shards the data will be divided into. By default the value is 1.
-        - **dataset_name** (str, optional) - The name of the dataset. By default the value is `dataset`.
-        - **full_batch** (bool, optional) - If true, each shard will get complete data sent by the sender. Otherwise each shard only gets part of the data. By default the value is False.
-        - **max_queue_size** (int, optional) - The maximum number of data that can be cached in the queue. By default the value is 10.
+        - **namespace** (str, optional) - The namespace that the channel belongs to. By default the value is ``'default'`` and the sender will be running in namespace ``default``. DataSender and DataReceiver in different namespaces cannot connect to each other.
+        - **num_shards** (int, optional) - Specifies how many shards the data will be divided into. By default the value is ``1``.
+        - **dataset_name** (str, optional) - The name of the dataset. By default the value is ``'dataset'``.
+        - **full_batch** (bool, optional) - If ``True``, each shard will get complete data sent by the sender. Otherwise each shard only gets part of the data. By default the value is ``False``.
+        - **max_queue_size** (int, optional) - The maximum number of data that can be cached in the queue. By default the value is ``10``.
 
     Raises
         - **ValueError** - When `num_shards` is an invalid value.
@@ -42,7 +42,7 @@
         Returns the object references that haven't been consumed in the shard specified by `shard_id`.
 
         Parameters
-            - **shard_id** (int, optional) - The id of the requested shard. By default the value is None and it will return all shards.
+            - **shard_id** (int, optional) - The id of the requested shard. By default the value is ``None`` and it will return all shards.
 
         Returns
             List，stores references of the data in the shard.
